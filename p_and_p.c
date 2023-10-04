@@ -1,5 +1,5 @@
 #include <p_and_p.h>
-
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -56,61 +56,65 @@ int saveItemDetailsToPath(const struct ItemDetails* arr, size_t nmemb, const cha
 
 */
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
-
- 
-  FILE *fptr = fdopen(fd,"rb");
-  if(fptr==NULL){
-    perror("unable to open file");
-    return(1);
-  }
-
-  size_t reading = fread(nmemb, sizeof(uint64_t),1,fptr);  // pass in the size of the items
-  if (reading != 1){
-    perror("reading heading failed");
-    return 1;
-  }
-
-  // access the outer pointer
-  *ptr=malloc(sizeof(struct ItemDetails)*(*nmemb));
-  if (*ptr==NULL){
-    perror("Malloc failed");
-    fclose(fptr);
-    return 1;
-  }
-
-
-  for (size_t i = 0; i<*nmemb;i++){
-    memset(&(*ptr)[i],0,sizeof(struct ItemDetails));
-    for (size_t i = 0; i < sizeof(struct ItemDetails); i++) {
-        if ((char *)ptr[i] != 0) {
-            return 0; // Failed to zero memory
-        }
+    FILE *fptr = fdopen(fd,"rb");
+        if(fptr==NULL){
+        perror("unable to open file");
+        return(1);
     }
 
-    reading = fread(nmemb, sizeof(uint64_t),1,fptr);  // pass in the size of the items
 
-    reading = fread(&(*ptr)[i].itemID,sizeof(uint64_t),1,fptr);
+    size_t numRead;
+    size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
     if (reading != 1){
-      perror("reading itemID failed");
-      return 1;
+        perror("reading heading failed");
+        return 1;
+    }
+    *nmemb = numRead;
+
+  
+    *ptr = calloc(*nmemb, sizeof(struct ItemDetails));
+    if (*ptr == NULL) {
+        perror("Calloc failed");
+        fclose(fptr);
+        return 1;
+    }else{
+        printf("allocated %ld number of bytes\n", ((*nmemb) * sizeof(struct ItemDetails)));
     }
 
-    reading = fread((*ptr)[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
-    if (reading != DEFAULT_BUFFER_SIZE){
-      perror("reading itemID failed");
-      return 1;
+    for (size_t i = 0; i<*nmemb;i++){
+        reading = fread(&(*ptr)[i].itemID,sizeof(uint64_t),1,fptr);
+        if (reading != 1){
+            perror("reading itemID failed");
+            free(*ptr);
+            return 1;
+        }  
+        //printf("%ld \t\t", ((uint64_t)&(*ptr)[i].itemID));
+
+        reading = fread((*ptr)[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
+        if (reading != DEFAULT_BUFFER_SIZE){
+            perror("reading name failed");
+            free(*ptr);
+            return 1;
+            }
+        (*ptr)[i].name[DEFAULT_BUFFER_SIZE - 1] = '\0';
+       // printf("%s \t\t", (*ptr)[i].name);
+
+
+
+        reading = fread((*ptr)[i].desc, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
+        if (reading != DEFAULT_BUFFER_SIZE){
+            perror("reading itemID failed");
+            free(*ptr);
+            return 1;
+        }
+        (*ptr)[i].desc[DEFAULT_BUFFER_SIZE - 1] = '\0';
+        //printf("%s \n", (*ptr)[i].desc);
+
     }
 
-    reading = fread((*ptr[i]).desc,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
-    if (reading != DEFAULT_BUFFER_SIZE){
-      perror("reading itemID failed");
-      return 1;
-    }
-  }
-
-  for (int i = 0; i < *nmemb; i++) {
-      printf("%llu \t %s \t %s \n", &((*ptr)[i].itemID), (*ptr)[i].name, (*ptr)[i].desc);
-  }
+//   for (size_t i = 0; i < *nmemb; i++) {
+//       printf("%ln \t %s \t %s \n", &((*ptr)[i].itemID), (*ptr)[i].name, (*ptr)[i].desc);
+//   }
 
   fclose(fptr);
 
@@ -124,12 +128,31 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
  * checks whether a string constitutes a valid name field. It returns 1 if so, and 0 if not.
 */
 int isValidName(const char *str) {
+  if (str==NULL){
+    return 0;
+  }
+
+  size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
+  
+  if (nameLength==0){
+    return 0;
+  }
+
+
+  if(nameLength < DEFAULT_BUFFER_SIZE) {
+    for (size_t i=0; i<nameLength; i++){
+      if (isgraph(str[i]) == 0){
+        return 0;
+      }
+    } 
+    return 1;
+  }
   return 0;
 }
 
 
 /**
- * checks whether a string constitutes a valid name field. It returns 1 if so, and 0 if not.
+ * checks whether a string constitutes a valid name field. It returns 1 if so, and 0 if not. strnlen(str, def_bufzszie) strlen(str) < dEFAYLT)
 */
 int isValidMultiword(const char *str) {
   return 0;

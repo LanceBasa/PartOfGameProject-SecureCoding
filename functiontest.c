@@ -1,3 +1,6 @@
+#define _POSIX_C_SOURCE 200809L
+
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -6,9 +9,11 @@
 #include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <ctype.h>
 static_assert (sizeof(size_t)==8, "we assume that its running on 64bit");
 #define DEFAULT_BUFFER_SIZE 512
 #define MAX_ITEMS 10
+
 
 
 struct ItemDetails {
@@ -16,19 +21,10 @@ struct ItemDetails {
   char name[DEFAULT_BUFFER_SIZE];
   char desc[DEFAULT_BUFFER_SIZE];
 };
-
-/**
- * Used to record how many items of one particular
- * type are carried by a player character.
- */
 struct ItemCarried {
   uint64_t itemID;
   size_t quantity;
 };
-
-/**
- * Used to record the social class of a character.
- */
 enum CharacterSocialClass {
   MENDICANT,
   LABOURER,
@@ -36,27 +32,6 @@ enum CharacterSocialClass {
   GENTRY,
   ARISTOCRACY
 };
-
-/**
- * Records the base details of a player character.
- * (Other structs are used to record additional details
- * required for the game.)
- *
- * The 'profession' and 'name' fields must each contain a valid, NUL-terminated
- * string of length at most DEFAULT_BUFFER_SIZE-1.
- *
- * The sum of all 'quantity' fields in the character's *inventory*
- * must not exceed MAX_ITEMS. (And since that means a character
- * can carry at most MAX_ITEMS distinct types of item, the length of the inventory
- * array is capped at that length.)
- *
- * The number of array elements currently containing valid
- * ItemCarried records is stored in the 'inventorySize' field.
- *
- * In all other respects, a Character struct and should comply with the
- * requirements laid out in the project specification for valid Character
- * structs.
- */
 struct Character {
   uint64_t characterID;
   enum CharacterSocialClass socialClass;
@@ -65,11 +40,7 @@ struct Character {
   size_t inventorySize;
   struct ItemCarried inventory[MAX_ITEMS];
 };
-
-
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
-
-
     FILE *fptr = fdopen(fd,"rb");
         if(fptr==NULL){
         perror("unable to open file");
@@ -91,6 +62,8 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
         perror("Calloc failed");
         fclose(fptr);
         return 1;
+    }else{
+        printf("allocated %ld number of bytes\n", ((*nmemb) * sizeof(struct ItemDetails)));
     }
 
 
@@ -99,18 +72,19 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
         if (reading != 1){
             perror("reading itemID failed");
             free(*ptr);
-
             return 1;
-        }   
+        }  
+        //printf("%ld \t\t", ((uint64_t)&(*ptr)[i].itemID));
 
         reading = fread((*ptr)[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
         if (reading != DEFAULT_BUFFER_SIZE){
-            
-            perror("reading itemID failed");
+            perror("reading name failed");
             free(*ptr);
             return 1;
             }
         (*ptr)[i].name[DEFAULT_BUFFER_SIZE - 1] = '\0';
+       // printf("%s \t\t", (*ptr)[i].name);
+
 
 
         reading = fread((*ptr)[i].desc, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
@@ -120,6 +94,8 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
             return 1;
         }
         (*ptr)[i].desc[DEFAULT_BUFFER_SIZE - 1] = '\0';
+        //printf("%s \n", (*ptr)[i].desc);
+
     }
 
 //   for (size_t i = 0; i < *nmemb; i++) {
@@ -134,18 +110,99 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
 
 
 
+int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
+  FILE *fptr = fdopen(fd,"wb");
+  if(fptr==NULL){
+    perror("unable to open file");
+    return(1);
+  }
+
+  fwrite(&nmemb,sizeof(size_t),1,fptr);     // header specified in the project-spec
+
+  // Assuming that the items are already sanitized, loop each ItemDetails in the array and write each one. 
+  for (size_t i = 0; i<nmemb;i++){
+    fwrite(&arr[i].itemID,sizeof(uint64_t),1,fptr);
+    fwrite(arr[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
+    fwrite(arr[i].desc,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
+  }
+
+  fflush(fptr);
+  fclose(fptr);
+  return 0;
+}
+
+
+int isValidName(const char *str) {
+
+    if (str==NULL){
+        return 0;
+    }
+
+    size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
+
+    if (nameLength==0){
+        return 0;
+    }
+
+
+  if(nameLength < DEFAULT_BUFFER_SIZE) {
+    for (size_t i=0; i<nameLength; i++){
+      if (isgraph(str[i]) == 0){
+        return 0;
+      }
+    } 
+
+    printf("this%li\n",nameLength);
+    return 1;
+  }
+  return 0;
+}
+
+
+
 int main(){
-     const char * infile_path = "items001.dat";
     int fd;
-    fd = open(infile_path, O_RDONLY); // Use O_BINARY for binary files on some systems
+    int res;
 
-    // printf("%d\n",fd);
+// ------------------------------------------   P1 - saveItemDetails()   -----------------------------------------
+    // struct ItemDetails itemArr[] = {
+    // { .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }
+    // };
+    // size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
 
+    // char* file_conts = NULL;
+    // size_t file_size = 0;
+    // FILE *ofp = fopen("submit_result.dat", "wb");
+    // assert(ofp != NULL);
+    // fd = fileno(ofp);
+    // assert(fd != -1);
+    // res = saveItemDetails(itemArr, itemArr_size, fd);
+    // assert(res == 0);
+    // fclose(ofp);
+
+    // printf("%ld\t%s\n", file_size, file_conts);
+
+// ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
+    const char * infile_path = "items001.dat";
+    fd = open(infile_path, O_RDONLY);
     size_t numItems = 0;
     struct ItemDetails * itemsArr = NULL;
-    int res = loadItemDetails(&itemsArr, &numItems, fd);
+    res = loadItemDetails(&itemsArr, &numItems, fd);
+    close (fd);
 
-        close (fd);
+    for (size_t i = 0;i<numItems;i++){
+        printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
+    }
+    printf("%d\n", res);
 
-    return res;
+// ------------------------------------------   P3 - loadItemDetails()   -----------------------------------------
+
+    
+    int valid = isValidName("");
+    printf("return%i\n", valid);
+
+
+
+
+    return 1;
 }
