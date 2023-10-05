@@ -113,7 +113,7 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   FILE *fptr = fdopen(fd,"wb");
   if(fptr==NULL){
     perror("unable to open file");
-    return(1);
+    return 1;
   }
 
   fwrite(&nmemb,sizeof(size_t),1,fptr);     // header specified in the project-spec
@@ -234,18 +234,18 @@ int isValidCharacter(const struct Character * c) {
     return 0;
   };
 
-  checkLst[0] = (charCpy.characterID >= 0 && charCpy.characterID <= UINT64_MAX);
+  checkLst[0] = (charCpy.characterID <= UINT64_MAX);
   checkLst[1]= (charCpy.socialClass >= MENDICANT && charCpy.socialClass <= ARISTOCRACY);// check if within the enum range
   checkLst[2]=isValidName(charCpy.profession);
   checkLst[3]=isValidMultiword(charCpy.name);
-  checkLst[4] = (charCpy.inventorySize >= 0 && charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
+  checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
   checkLst[5]= 1;
   size_t total = 0;
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i<charCpy.inventorySize;i++){
 
-    if( !(charCpy.inventory[i].itemID >= 0 && charCpy.inventory[i].itemID <= UINT64_MAX)){
+    if(!(charCpy.inventory[i].itemID <= UINT64_MAX)){
       checkLst[5]=0;
       return 0;
     }
@@ -265,7 +265,51 @@ int isValidCharacter(const struct Character * c) {
 }
 
 
+/**
+ * must use validations  to validate records before saving
+ * Header  - uint64 specifying the num of characters in saved file
+ * Each char records have the following
+ *  char ID - uint64
+ *  socialclass - enum
+ *  profession - namefield
+ *  name - multiword field
+ *  inventory size - uint64 number of unique items
+ *  inventoryitem - inventory size * itemCarried(has itemid and quantity)
+ * */ 
+int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
 
+  if (nmemb > UINT64_MAX || nmemb==0){
+    perror("incomming size is either emmpty or too much\n");  
+    return 1;
+  }
+  uint64_t charCount = (uint64_t) nmemb;
+
+  struct Character charCpy[charCount];
+  memset(charCpy,0,sizeof(struct Character )* charCount);
+  memcpy(&charCpy,arr,sizeof(struct Character)*charCount);
+  //check if memset and cpy success
+
+  for (uint64_t i = 0; i<charCount;i++){
+    int charValid = isValidCharacter(&charCpy[i]);
+    if (!charValid){
+      printf("Invalid character number %lu\n", i+1);
+      return 1;
+    }
+  }
+
+  FILE *fptr = fdopen(fd,"wb");
+  if(fptr==NULL){
+    return 1;
+  }
+  //validated. just dump the whole struct
+  fwrite(&charCount,sizeof(uint64_t),1,fptr);
+  fwrite(&charCpy,sizeof(charCpy),1,fptr);
+  
+  fflush(fptr);
+  fclose(fptr);
+
+  return 0;
+}
 
 
 
@@ -278,8 +322,6 @@ int main(){
   struct ItemDetails itemArr[] = {{ .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }};
   size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
 
-  char* file_conts = NULL;
-  size_t file_size = 0;
   FILE *ofp = fopen("submit_result.dat", "wb");
   assert(ofp != NULL);
   fd = fileno(ofp);
@@ -288,7 +330,6 @@ int main(){
   assert(res == 0);
   fclose(ofp);
 
-  printf("Save Item result%ld\t%s\n", file_size, file_conts);
 
   // ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
   const char * infile_path = "items001.dat";
@@ -333,6 +374,30 @@ int main(){
    printf("valid char return ( 0 is fail): %i\n", validChar);
 
 
+// ------------------------------------------   P7 - saveCharacters()   -----------------------------------------
+  struct Character arr[] = { {
+    .characterID = 1,
+    .socialClass = MERCHANT,
+    .profession = "inn-keeper",
+    .name = "Edgar Crawford",
+    .inventorySize = 1,
+    .inventory = {
+      { .itemID = 200648657395984580,
+        .quantity = 1
+      }
+    }
+  } };
 
-  return 1;
+  size_t charArr_size = sizeof(arr)/sizeof(struct Character);
+
+  FILE *ofps = fopen("savecharacter.dat", "wb");
+  assert(ofp != NULL);
+  int fdc = fileno(ofps);
+  assert(fdc != -1);
+  int actual_result = saveCharacters(arr, charArr_size, fdc);
+  assert(actual_result == 0);
+  printf("saveChar ( 0 is success): %i\n", actual_result);
+
+  fclose(ofps);
+  return 0;
 }
