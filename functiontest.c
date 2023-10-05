@@ -193,17 +193,83 @@ must not be empty strings. This function returns 1 if the struct is valid, and 0
 */
 // id name and multiwword
 int isValidItemDetails(const struct ItemDetails *id) {
+
+  struct ItemDetails itemCpy;
+  memset(&itemCpy,0,sizeof (struct ItemDetails ));
+  memcpy (&itemCpy, id, sizeof(struct ItemDetails));
+
   // 0 is false/invalid
   int checkID, checkName, checkMultiword;
-  checkID = (id->itemID >= 0 && id->itemID <= UINT64_MAX);
-  checkName=isValidName(id->name);
-  checkMultiword=isValidMultiword(id->desc);
+  checkID = (itemCpy.itemID >= 0 && itemCpy.itemID <= UINT64_MAX);
+  checkName=isValidName(itemCpy.name);
+  checkMultiword=isValidMultiword(itemCpy.desc);
 
-  printf("%i\t%i\t%i\n",checkID,checkName,checkMultiword);
+  //printf("%i\t%i\t%i\n",checkID,checkName,checkMultiword);
+  int result =(checkID && checkName && checkMultiword);
 
-  return (checkID && checkName && checkMultiword); 
+  return result; 
 }
 
+/**
+ * checks whether a Character struct is valid – it is valid iff all of its fields are valid (as
+described in the documentation for the struct and elsewhere in this project specification).
+The following are all necessary preconditions for validity of the struct:
+• the profession field must be a valid name field, and must not be the empty string;
+• the name field must be a valid multi-word field, and must not be the empty string;
+• the total number of items carried (that is: the sum of the quantity fields of the
+ItemCarried structs that form part of the inventory) must not exceed MAX_ITEMS; and
+• inventorySize must be less than or equal to MAX_ITEMS.
+This function returns 1 if the struct is valid, and 0 if not.
+*/
+int isValidCharacter(const struct Character * c) {
+  struct Character charCpy;
+  memset (&charCpy, 0, sizeof(struct Character));
+  memcpy (&charCpy, c, sizeof(struct Character));
+  //need to check if memset success?
+
+  // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount;
+  int checkLst[6];
+  if (memset(&checkLst, 0, sizeof(checkLst)) == NULL) {
+    perror("memset failed on isValidChar");
+    return 0;
+  };
+
+  checkLst[0] = (charCpy.characterID >= 0 && charCpy.characterID <= UINT64_MAX);
+  checkLst[1]= (charCpy.socialClass >= MENDICANT && charCpy.socialClass <= ARISTOCRACY);// check if within the enum range
+  checkLst[2]=isValidName(charCpy.profession);
+  checkLst[3]=isValidMultiword(charCpy.name);
+  checkLst[4] = (charCpy.inventorySize >= 0 && charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
+  checkLst[5]= 1;
+  size_t total = 0;
+
+  // get the total. should not exceed MAX_ITEMS
+  for (size_t i = 0; i<charCpy.inventorySize;i++){
+
+    if( !(charCpy.inventory[i].itemID >= 0 && charCpy.inventory[i].itemID <= UINT64_MAX)){
+      checkLst[5]=0;
+      return 0;
+    }
+    total += charCpy.inventory[i].quantity;
+  };
+  checkLst[5]=(total<=MAX_ITEMS);
+  
+  //checks all fields in struct passed validation.
+  for (int i = 0; i < 6; i++) {
+
+    if (checkLst[i] != 1) {
+        return 0; 
+        break;
+    }
+  }
+  return 1;
+}
+
+
+
+
+
+
+// ============MAIN=============================================MAIN============================================================MAIN===============
 int main(){
   int fd;
   int res;
@@ -246,8 +312,27 @@ int main(){
   int validMultiword = isValidMultiword("asdad");
   printf("valid Multiword return ( 0 is fail): %i\n", validMultiword);
 
-  // ------------------------------------------   P5 - isValidItemDetail()   -----------------------------------------
+// ------------------------------------------   P5 - isValidItemDetail()   -----------------------------------------
   int validItemDeets = isValidItemDetails(&itemArr[0]);
   printf("valid Item return ( 0 is fail): %i\n", validItemDeets);
+
+// ------------------------------------------   P6 - isValidCharacter()   -----------------------------------------
+  const struct Character sample_character = {
+    .characterID = 1,
+    .socialClass = MERCHANT,
+    .profession = "inn-keeper",
+    .name = "Edgar Crawford",
+    .inventorySize = 1,
+    .inventory = {
+      { .itemID = 200648657395984580,
+        .quantity = 1
+      }
+    }
+  };
+  int validChar = isValidCharacter(&sample_character);
+   printf("valid char return ( 0 is fail): %i\n", validChar);
+
+
+
   return 1;
 }
