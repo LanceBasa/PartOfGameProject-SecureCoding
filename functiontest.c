@@ -40,73 +40,10 @@ struct Character {
   size_t inventorySize;
   struct ItemCarried inventory[MAX_ITEMS];
 };
-int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
-    FILE *fptr = fdopen(fd,"rb");
-    if(fptr==NULL){
-      perror("unable to open file");
-      return(1);
-    }
-
-
-    size_t numRead;
-    size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
-    if (reading != 1){
-        perror("reading heading failed");
-        return 1;
-    }
-    *nmemb = numRead;
-
-  
-    *ptr = calloc(*nmemb, sizeof(struct ItemDetails));
-    if (*ptr == NULL) {
-        perror("Calloc failed");
-        fclose(fptr);
-        return 1;
-    }
-    // else{
-    //     printf("allocated %ld number of bytes\n", ((*nmemb) * sizeof(struct ItemDetails)));
-    // }
-
-
-    for (size_t i = 0; i<*nmemb;i++){
-        reading = fread(&(*ptr)[i].itemID,sizeof(uint64_t),1,fptr);
-        if (reading != 1){
-            perror("reading itemID failed");
-            free(*ptr);
-            return 1;
-        }  
-        //printf("%ld \t\t", ((uint64_t)&(*ptr)[i].itemID));
-
-        reading = fread((*ptr)[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
-        if (reading != DEFAULT_BUFFER_SIZE){
-            perror("reading name failed");
-            free(*ptr);
-            return 1;
-            }
-        (*ptr)[i].name[DEFAULT_BUFFER_SIZE - 1] = '\0';
-       // printf("%s \t\t", (*ptr)[i].name);
 
 
 
-        reading = fread((*ptr)[i].desc, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
-        if (reading != DEFAULT_BUFFER_SIZE){
-            perror("reading itemID failed");
-            free(*ptr);
-            return 1;
-        }
-        (*ptr)[i].desc[DEFAULT_BUFFER_SIZE - 1] = '\0';
-        //printf("%s \n", (*ptr)[i].desc);
 
-    }
-
-//   for (size_t i = 0; i < *nmemb; i++) {
-//       printf("%ln \t %s \t %s \n", &((*ptr)[i].itemID), (*ptr)[i].name, (*ptr)[i].desc);
-//   }
-
-  fclose(fptr);
-
-  return 0;
-}
 
 
 int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
@@ -128,6 +65,70 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   fflush(fptr);
   fclose(fptr);
   return 0;
+}
+
+
+int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
+    FILE* fptr = fdopen(fd, "rb");
+    if (fptr == NULL) {
+        perror("unable to open file");
+        return 1;
+    }
+
+    size_t numRead;
+    size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
+    if (reading != 1) {
+        perror("reading heading failed");
+        fclose(fptr);
+        return 1;
+    }
+    *nmemb = numRead;
+
+    // Create a new struct ItemDetails pointer
+    struct ItemDetails* newPtr = calloc(*nmemb, sizeof(struct ItemDetails));
+    if (newPtr == NULL) {
+        perror("Calloc failed");
+        fclose(fptr);
+        return 1;
+    }
+
+    for (size_t i = 0; i < *nmemb; i++) {
+        reading = fread(&newPtr[i].itemID, sizeof(uint64_t), 1, fptr);
+        if (reading != 1) {
+            perror("reading itemID failed");
+            free(newPtr); // Free the newly allocated memory
+            fclose(fptr);
+            return 1;
+        }
+
+        reading = fread(newPtr[i].name, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
+        if (reading != DEFAULT_BUFFER_SIZE) {
+            perror("reading name failed");
+            free(newPtr); // Free the newly allocated memory
+            fclose(fptr);
+            return 1;
+        }
+        newPtr[i].name[DEFAULT_BUFFER_SIZE - 1] = '\0';
+
+        reading = fread(newPtr[i].desc, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
+        if (reading != DEFAULT_BUFFER_SIZE) {
+            perror("reading itemID failed");
+            free(newPtr); // Free the newly allocated memory
+            fclose(fptr);
+            return 1;
+        }
+        newPtr[i].desc[DEFAULT_BUFFER_SIZE - 1] = '\0';
+    }
+    fclose(fptr);
+
+    // Free the memory pointed to by the incoming pointer, if it's not NULL
+    if (*ptr != NULL) {
+        free(*ptr);
+    }
+
+    // Set the incoming pointer to the new pointer
+    *ptr = newPtr;
+    return 0;
 }
 
 
@@ -200,7 +201,7 @@ int isValidItemDetails(const struct ItemDetails *id) {
 
   // 0 is false/invalid
   int checkID, checkName, checkMultiword;
-  checkID = (itemCpy.itemID >= 0 && itemCpy.itemID <= UINT64_MAX);
+  checkID = (itemCpy.itemID <= UINT64_MAX);
   checkName=isValidName(itemCpy.name);
   checkMultiword=isValidMultiword(itemCpy.desc);
 
@@ -311,6 +312,26 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
   return 0;
 }
 
+// must use validations to validate records before loading
+// int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
+//   FILE *fptr = fdopen(fd,"rb");
+//   if(fptr==NULL){
+//     perror("unable to open file");
+//     return(1);
+//   }
+
+//   size_t numRead;
+//   size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
+//   if (reading != 1){
+//       perror("reading heading failed");
+//       return 1;
+//   }
+//   *nmemb = numRead;
+
+
+//   return 0;
+// }
+
 
 
 // ============MAIN=============================================MAIN============================================================MAIN===============
@@ -342,7 +363,51 @@ int main(){
   // for (size_t i = 0;i<numItems;i++){
   //     printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
   // }
-  printf("loadItemDetails return ( 0 is fail):\t %i\n", res);
+  printf("loadItemDetails return ( 0 is success):\t %i\n", res);
+
+
+ struct ItemDetails items001_expectedItems_test2[] = {
+    { .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." },
+    { .itemID = 13744653742375254000UL, .name = "rope",           .desc = "hemp, 50 ft." },
+    { .itemID = 3400701144194139000UL,  .name = "music-box",      .desc = "brass gears with tin-plated case, 6 in., cursed" },
+    { .itemID = 734628920708863200UL,   .name = "billiard-ball",  .desc = "ivory, 2 in., set of 16 in wooden case, of mysterious origin" },
+    { .itemID = 14734865628490349000UL, .name = "sword-cane",     .desc = "steel-bladed, concealed in Malacca-wood walking-cane, 36 in." },
+    { .itemID = 14324391740292973000UL, .name = "dynamite-stick", .desc = "with paper wrapping, 1 in. diameter x 12 in." },
+    { .itemID = 7562791295545618000UL,  .name = "Epsom-salts",    .desc = "6 oz, in glass bottle with cork stopper" },
+    { .itemID = 13658877949582529000UL, .name = "camp-stool",     .desc = "canvas and wood, 12 in. seat height" },
+    { .itemID = 2390949174291477500UL,  .name = "slide-rule",     .desc = "wood and brass, 12 in., cursed" },
+  };
+
+  size_t items001_expectedSize_test2 = sizeof(items001_expectedItems_test2)/sizeof(struct ItemDetails);
+  for(size_t i = 0; i < items001_expectedSize_test2; i++) {
+
+    ofp = fopen(infile_path, "rb");
+    fd = fileno(ofp);
+
+    numItems = 0;
+    itemsArr = NULL;
+    res = loadItemDetails(&itemsArr, &numItems, fd);
+
+    
+
+    // pre-requisite: we got the expected number of items
+    assert(numItems == items001_expectedSize_test2);
+
+    //fprintf(stderr, "checking equality of item %d, with expected itemID %zu\n",
+    //        i, items001_expectedItems_test2[i].itemID
+    //);
+    // int result = memcmp(&(itemsArr[i]), &(items001_expectedItems_test2[i]), sizeof(struct ItemDetails));
+    // printf("loaditem return ( 0 is success):\t %i\n", result);
+    free(itemsArr);
+
+}
+
+
+  printf("loadItemDetails2 return ( 0 is success):\t %i\n", res);
+
+
+
+
 
 // ------------------------------------------   P3 - isValidName()   -----------------------------------------
   int validName = isValidName("asdasd");
