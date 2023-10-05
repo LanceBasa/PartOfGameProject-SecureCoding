@@ -152,9 +152,30 @@ int isValidName(const char *str) {
 
 
 /**
- * checks whether a string constitutes a valid name field. It returns 1 if so, and 0 if not. strnlen(str, def_bufzszie) strlen(str) < dEFAYLT)
+ *  checks whether a string constitutes a valid multi-word field. It returns 1 if so, and 0if not.
 */
 int isValidMultiword(const char *str) {
+  if (str==NULL){
+    return 0;
+  }
+
+  size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
+  
+  if (nameLength==0){
+    return 0;
+  }
+
+  if(nameLength < DEFAULT_BUFFER_SIZE) {
+    if (str[0]==' ' || str[nameLength-1]== ' '){
+      return 0;
+    };
+    for (size_t i=0; i<nameLength; i++){
+      if (!isgraph(str[i]) && str[i] != ' '){
+        return 0;
+      }
+    } 
+    return 1;
+  }
   return 0;
 }
 

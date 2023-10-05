@@ -42,9 +42,9 @@ struct Character {
 };
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
     FILE *fptr = fdopen(fd,"rb");
-        if(fptr==NULL){
-        perror("unable to open file");
-        return(1);
+    if(fptr==NULL){
+      perror("unable to open file");
+      return(1);
     }
 
 
@@ -62,9 +62,10 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
         perror("Calloc failed");
         fclose(fptr);
         return 1;
-    }else{
-        printf("allocated %ld number of bytes\n", ((*nmemb) * sizeof(struct ItemDetails)));
     }
+    // else{
+    //     printf("allocated %ld number of bytes\n", ((*nmemb) * sizeof(struct ItemDetails)));
+    // }
 
 
     for (size_t i = 0; i<*nmemb;i++){
@@ -108,8 +109,6 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
 }
 
 
-
-
 int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   FILE *fptr = fdopen(fd,"wb");
   if(fptr==NULL){
@@ -151,58 +150,104 @@ int isValidName(const char *str) {
         return 0;
       }
     } 
-
-    printf("this%li\n",nameLength);
-    return 1;
+    return 1; //success/valid
   }
   return 0;
 }
 
 
+int isValidMultiword(const char *str) {
+  if (str==NULL){
+    return 0;
+  }
+
+  size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
+  
+  if (nameLength==0){
+    return 0;
+  }
+
+
+  if(nameLength < DEFAULT_BUFFER_SIZE) {
+    if (str[0]==' ' || str[nameLength-1]== ' '){
+      return 0;
+    };
+
+
+    for (size_t i=0; i<nameLength; i++){
+      if (!isgraph(str[i]) && str[i] != ' '){
+        return 0;
+      }
+    } 
+    return 1; //success/valid
+  }
+  return 0;
+}
+
+
+/**
+ * checks whether an ItemDetails struct is valid – it is valid iff all of its fields are valid (as
+described in the documentation for the struct and elsewhere in this project specification).
+The name and desc fields must be valid name and multi-word fields, respectively; they also
+must not be empty strings. This function returns 1 if the struct is valid, and 0 if not.
+*/
+// id name and multiwword
+int isValidItemDetails(const struct ItemDetails *id) {
+  // 0 is false/invalid
+  int checkID, checkName, checkMultiword;
+  checkID = (id->itemID >= 0 && id->itemID <= UINT64_MAX);
+  checkName=isValidName(id->name);
+  checkMultiword=isValidMultiword(id->desc);
+
+  printf("%i\t%i\t%i\n",checkID,checkName,checkMultiword);
+
+  return (checkID && checkName && checkMultiword); 
+}
 
 int main(){
-    int fd;
-    int res;
+  int fd;
+  int res;
 
 // ------------------------------------------   P1 - saveItemDetails()   -----------------------------------------
-    // struct ItemDetails itemArr[] = {
-    // { .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }
-    // };
-    // size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
+  struct ItemDetails itemArr[] = {{ .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }};
+  size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
 
-    // char* file_conts = NULL;
-    // size_t file_size = 0;
-    // FILE *ofp = fopen("submit_result.dat", "wb");
-    // assert(ofp != NULL);
-    // fd = fileno(ofp);
-    // assert(fd != -1);
-    // res = saveItemDetails(itemArr, itemArr_size, fd);
-    // assert(res == 0);
-    // fclose(ofp);
+  char* file_conts = NULL;
+  size_t file_size = 0;
+  FILE *ofp = fopen("submit_result.dat", "wb");
+  assert(ofp != NULL);
+  fd = fileno(ofp);
+  assert(fd != -1);
+  res = saveItemDetails(itemArr, itemArr_size, fd);
+  assert(res == 0);
+  fclose(ofp);
 
-    // printf("%ld\t%s\n", file_size, file_conts);
+  printf("Save Item result%ld\t%s\n", file_size, file_conts);
 
-// ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
-    const char * infile_path = "items001.dat";
-    fd = open(infile_path, O_RDONLY);
-    size_t numItems = 0;
-    struct ItemDetails * itemsArr = NULL;
-    res = loadItemDetails(&itemsArr, &numItems, fd);
-    close (fd);
+  // ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
+  const char * infile_path = "items001.dat";
+  fd = open(infile_path, O_RDONLY);
+  size_t numItems = 0;
+  struct ItemDetails * itemsArr = NULL;
+  res = loadItemDetails(&itemsArr, &numItems, fd);
+  close (fd);
 
-    for (size_t i = 0;i<numItems;i++){
-        printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
-    }
-    printf("%d\n", res);
+  // for (size_t i = 0;i<numItems;i++){
+  //     printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
+  // }
+  printf("loadItemDetails return ( 0 is fail):\t %i\n", res);
 
-// ------------------------------------------   P3 - loadItemDetails()   -----------------------------------------
+// ------------------------------------------   P3 - isValidName()   -----------------------------------------
+  int validName = isValidName("asdasd");
+  printf("valid name return ( 0 is fail):\t %i\n", validName);
 
-    
-    int valid = isValidName("");
-    printf("return%i\n", valid);
+// ------------------------------------------   P4 - isValidMultiword()   -----------------------------------------
 
+  int validMultiword = isValidMultiword("asdad");
+  printf("valid Multiword return ( 0 is fail): %i\n", validMultiword);
 
-
-
-    return 1;
+  // ------------------------------------------   P5 - isValidItemDetail()   -----------------------------------------
+  int validItemDeets = isValidItemDetails(&itemArr[0]);
+  printf("valid Item return ( 0 is fail): %i\n", validItemDeets);
+  return 1;
 }
