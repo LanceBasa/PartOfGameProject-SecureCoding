@@ -1,6 +1,5 @@
 #define _POSIX_C_SOURCE 200809L
 
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,7 +12,6 @@
 static_assert (sizeof(size_t)==8, "we assume that its running on 64bit");
 #define DEFAULT_BUFFER_SIZE 512
 #define MAX_ITEMS 10
-
 
 
 struct ItemDetails {
@@ -40,9 +38,6 @@ struct Character {
   size_t inventorySize;
   struct ItemCarried inventory[MAX_ITEMS];
 };
-
-
-
 
 
 
@@ -85,9 +80,9 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
     *nmemb = numRead;
 
     // Create a new struct ItemDetails pointer
-    struct ItemDetails* newPtr = calloc(*nmemb, sizeof(struct ItemDetails));
+    struct ItemDetails* newPtr = (struct ItemDetails *)malloc(numRead * sizeof(struct ItemDetails));
     if (newPtr == NULL) {
-        perror("Calloc failed");
+        perror("malloc failed");
         fclose(fptr);
         return 1;
     }
@@ -121,7 +116,7 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
     }
     fclose(fptr);
 
-    // Free the memory pointed to by the incoming pointer, if it's not NULL
+    //Free the memory pointed to by the incoming pointer, if it's not NULL
     if (*ptr != NULL) {
         free(*ptr);
     }
@@ -364,6 +359,10 @@ int main(){
   //     printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
   // }
   printf("loadItemDetails return ( 0 is success):\t %i\n", res);
+
+  free(itemsArr);
+
+  
 
 
  struct ItemDetails items001_expectedItems_test2[] = {
