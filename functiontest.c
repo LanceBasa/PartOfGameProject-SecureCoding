@@ -1,4 +1,4 @@
-#define _POSIX_C_SOURCE 200809L
+#define _POSIX_C_SOURCE 200809L//strnlen
 
 #include <stdio.h>
 #include <string.h>
@@ -9,9 +9,15 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
+
+
 static_assert (sizeof(size_t)==8, "we assume that its running on 64bit");
 #define DEFAULT_BUFFER_SIZE 512
 #define MAX_ITEMS 10
+
+
+
+
 
 
 struct ItemDetails {
@@ -39,24 +45,40 @@ struct Character {
   struct ItemCarried inventory[MAX_ITEMS];
 };
 
+//just declaring
+int isValidItemDetails(const struct ItemDetails *id);
+
+
 
 
 int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
-  FILE *fptr = fdopen(fd,"wb");
-  if(fptr==NULL){
-    perror("unable to open file");
+  if (nmemb > UINT64_MAX || nmemb==0){
+    return 1;
+  }
+  uint64_t itemCount = (uint64_t) nmemb;
+  
+  struct ItemDetails itemCpy[itemCount];
+  memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
+  memcpy(&itemCpy,arr,sizeof(struct ItemDetails)*itemCount);
+  if(memcmp(arr,&itemCpy,sizeof(struct ItemDetails)*nmemb)){
     return 1;
   }
 
-  fwrite(&nmemb,sizeof(size_t),1,fptr);     // header specified in the project-spec
-
-  // Assuming that the items are already sanitized, loop each ItemDetails in the array and write each one. 
-  for (size_t i = 0; i<nmemb;i++){
-    fwrite(&arr[i].itemID,sizeof(uint64_t),1,fptr);
-    fwrite(arr[i].name,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
-    fwrite(arr[i].desc,sizeof(char),DEFAULT_BUFFER_SIZE,fptr);
+   for (uint64_t i = 0; i<itemCount;i++){
+    int itemValid = isValidItemDetails(&itemCpy[i]);
+    if (!itemValid){
+      return 1;
+    }
   }
 
+  FILE *fptr = fdopen(fd,"wb");
+  if(fptr==NULL){
+    return 1;
+  }
+
+  //validated. just write everything
+  fwrite(&itemCount,sizeof(uint64_t),1,fptr);
+  fwrite(&itemCpy,sizeof(itemCpy),1,fptr);
   fflush(fptr);
   fclose(fptr);
   return 0;
@@ -64,81 +86,56 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
 
 
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
-    FILE* fptr = fdopen(fd, "rb");
-    if (fptr == NULL) {
-        perror("unable to open file");
-        return 1;
-    }
+  FILE* fptr = fdopen(fd, "rb");
+  if (fptr == NULL) {
+      return 1;
+  }
 
-    size_t numRead;
-    size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
-    if (reading != 1) {
-        perror("reading heading failed");
-        fclose(fptr);
-        return 1;
-    }
-    *nmemb = numRead;
+  //reading the header of the file
+  if(fread(nmemb, sizeof(uint64_t), 1, fptr)!=1){
+    return 1;
+  }
 
-    // Create a new struct ItemDetails pointer
-    struct ItemDetails* newPtr = (struct ItemDetails *)malloc(numRead * sizeof(struct ItemDetails));
-    if (newPtr == NULL) {
-        perror("malloc failed");
-        fclose(fptr);
-        return 1;
-    }
-
-    for (size_t i = 0; i < *nmemb; i++) {
-        reading = fread(&newPtr[i].itemID, sizeof(uint64_t), 1, fptr);
-        if (reading != 1) {
-            perror("reading itemID failed");
-            free(newPtr); // Free the newly allocated memory
-            fclose(fptr);
-            return 1;
-        }
-
-        reading = fread(newPtr[i].name, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
-        if (reading != DEFAULT_BUFFER_SIZE) {
-            perror("reading name failed");
-            free(newPtr); // Free the newly allocated memory
-            fclose(fptr);
-            return 1;
-        }
-        newPtr[i].name[DEFAULT_BUFFER_SIZE - 1] = '\0';
-
-        reading = fread(newPtr[i].desc, sizeof(char), DEFAULT_BUFFER_SIZE, fptr);
-        if (reading != DEFAULT_BUFFER_SIZE) {
-            perror("reading itemID failed");
-            free(newPtr); // Free the newly allocated memory
-            fclose(fptr);
-            return 1;
-        }
-        newPtr[i].desc[DEFAULT_BUFFER_SIZE - 1] = '\0';
-    }
+  // Create a new struct ItemDetails pointer
+  struct ItemDetails* newItmPtr = calloc(*nmemb, sizeof(struct ItemDetails));
+  if (newItmPtr == NULL) {
     fclose(fptr);
+    return 1;
+  }
 
-    //Free the memory pointed to by the incoming pointer, if it's not NULL
-    if (*ptr != NULL) {
-        free(*ptr);
+  // Load and validate each ItemDetails
+  for (size_t i = 0; i < *nmemb; i++) {
+    if(fread(&newItmPtr[i],sizeof(struct ItemDetails),1,fptr)!=1){
+      free(newItmPtr);
+      return 1;
     }
+    if(!isValidItemDetails(&(newItmPtr[i]))){
+      free(newItmPtr);
+      return 1;
+    }
+  }
 
-    // Set the incoming pointer to the new pointer
-    *ptr = newPtr;
-    return 0;
-}
+  fclose(fptr);
+  if (*ptr != NULL) {
+      free(*ptr);
+  }
+  *ptr = newItmPtr;
+  return 0;
+  }
 
 
+/**
+ * return 1 on success and 0 on fail
+*/
 int isValidName(const char *str) {
-
-    if (str==NULL){
-        return 0;
-    }
-
-    size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
-
-    if (nameLength==0){
-        return 0;
-    }
-
+  if (str==NULL){
+      return 0;
+  }
+  
+  size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
+  if (nameLength==0){
+      return 0;
+  }
 
   if(nameLength < DEFAULT_BUFFER_SIZE) {
     for (size_t i=0; i<nameLength; i++){
@@ -146,36 +143,32 @@ int isValidName(const char *str) {
         return 0;
       }
     } 
-    return 1; //success/valid
+    return 1; 
   }
   return 0;
 }
 
-
+/**
+ * return 1 on success and 0 on fail
+*/
 int isValidMultiword(const char *str) {
   if (str==NULL){
     return 0;
   }
-
   size_t nameLength = strnlen(str,DEFAULT_BUFFER_SIZE);
-  
   if (nameLength==0){
     return 0;
   }
-
-
   if(nameLength < DEFAULT_BUFFER_SIZE) {
     if (str[0]==' ' || str[nameLength-1]== ' '){
       return 0;
     };
-
-
     for (size_t i=0; i<nameLength; i++){
       if (!isgraph(str[i]) && str[i] != ' '){
         return 0;
       }
     } 
-    return 1; //success/valid
+    return 1; 
   }
   return 0;
 }
@@ -183,9 +176,9 @@ int isValidMultiword(const char *str) {
 
 /**
  * checks whether an ItemDetails struct is valid – it is valid iff all of its fields are valid (as
-described in the documentation for the struct and elsewhere in this project specification).
-The name and desc fields must be valid name and multi-word fields, respectively; they also
-must not be empty strings. This function returns 1 if the struct is valid, and 0 if not.
+ * described in the documentation for the struct and elsewhere in this project specification).
+ * The name and desc fields must be valid name and multi-word fields, respectively; they also
+ * must not be empty strings. This function returns 1 if the struct is valid, and 0 if not.
 */
 // id name and multiwword
 int isValidItemDetails(const struct ItemDetails *id) {
@@ -226,7 +219,6 @@ int isValidCharacter(const struct Character * c) {
   // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount;
   int checkLst[6];
   if (memset(&checkLst, 0, sizeof(checkLst)) == NULL) {
-    perror("memset failed on isValidChar");
     return 0;
   };
 
@@ -236,7 +228,13 @@ int isValidCharacter(const struct Character * c) {
   checkLst[3]=isValidMultiword(charCpy.name);
   checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
   checkLst[5]= 1;
-  size_t total = 0;
+  uint64_t total = 0;
+
+  if (checkLst[4]==0){
+    printf("failed here%ld\n",charCpy.inventorySize);
+
+    return 0;
+  }
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i<charCpy.inventorySize;i++){
@@ -245,9 +243,18 @@ int isValidCharacter(const struct Character * c) {
       checkLst[5]=0;
       return 0;
     }
+
+    // printf("%ld\n",charCpy.inventory[i].quantity);
+    // if (charCpy.inventory[i].quantity<MAX_ITEMS){
+    //   return 0;
+    // }
+
     total += charCpy.inventory[i].quantity;
+    //printf("total items%li\n", total);
+    // printf("qtt%ld\n",charCpy.inventory[i].quantity);
   };
   checkLst[5]=(total<=MAX_ITEMS);
+
   
   //checks all fields in struct passed validation.
   for (int i = 0; i < 6; i++) {
@@ -275,7 +282,6 @@ int isValidCharacter(const struct Character * c) {
 int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
 
   if (nmemb > UINT64_MAX || nmemb==0){
-    perror("incomming size is either emmpty or too much\n");  
     return 1;
   }
   uint64_t charCount = (uint64_t) nmemb;
@@ -283,12 +289,14 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
   struct Character charCpy[charCount];
   memset(charCpy,0,sizeof(struct Character )* charCount);
   memcpy(&charCpy,arr,sizeof(struct Character)*charCount);
-  //check if memset and cpy success
+  if(memcmp(arr,&charCpy,sizeof(struct Character)*nmemb)){
+    return 1;
+  }
+
 
   for (uint64_t i = 0; i<charCount;i++){
     int charValid = isValidCharacter(&charCpy[i]);
     if (!charValid){
-      printf("Invalid character number %lu\n", i+1);
       return 1;
     }
   }
@@ -308,24 +316,49 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
 }
 
 // must use validations to validate records before loading
-// int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
-//   FILE *fptr = fdopen(fd,"rb");
-//   if(fptr==NULL){
-//     perror("unable to open file");
-//     return(1);
-//   }
+int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
+  FILE *fptr = fdopen(fd,"rb");
+  if(fptr==NULL){
+    return(1);
+  }
 
-//   size_t numRead;
-//   size_t reading = fread(&numRead, sizeof(uint64_t), 1, fptr);
-//   if (reading != 1){
-//       perror("reading heading failed");
-//       return 1;
-//   }
-//   *nmemb = numRead;
+  if(fread(nmemb, sizeof(uint64_t), 1, fptr)!=1){
 
+    return 1;
+  }
 
-//   return 0;
-// }
+struct Character* newPtr = calloc(*nmemb, sizeof(struct Character));
+    if (newPtr == NULL ) {
+
+            free(newPtr);
+
+        fclose(fptr);
+        return 1;
+    }
+
+for (size_t i = 0; i < *nmemb; i++) {
+  if(fread(&newPtr[i],sizeof(struct Character),1,fptr)!=1){
+
+    free(newPtr);
+
+    return 1;
+  }
+  if(!isValidCharacter(&newPtr[i])){
+    printf("failed here%ld\n",i);
+
+    free(newPtr);
+
+    return 1;
+  }
+}
+fclose(fptr);
+
+if (*ptr != NULL) {
+    free(*ptr);
+}
+  *ptr = newPtr;
+return 0;
+}
 
 
 
@@ -345,7 +378,7 @@ int main(){
   res = saveItemDetails(itemArr, itemArr_size, fd);
   assert(res == 0);
   fclose(ofp);
-
+  printf("P1\tSave item success\n");
 
   // ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
   const char * infile_path = "items001.dat";
@@ -392,11 +425,6 @@ int main(){
     // pre-requisite: we got the expected number of items
     assert(numItems == items001_expectedSize_test2);
 
-    //fprintf(stderr, "checking equality of item %d, with expected itemID %zu\n",
-    //        i, items001_expectedItems_test2[i].itemID
-    //);
-    // int result = memcmp(&(itemsArr[i]), &(items001_expectedItems_test2[i]), sizeof(struct ItemDetails));
-    // printf("loaditem return ( 0 is success):\t %i\n", result);
     free(itemsArr);
 
 }
@@ -434,12 +462,16 @@ int main(){
       }
     }
   };
+
+
   int validChar = isValidCharacter(&sample_character);
    printf("valid char return ( 0 is fail): %i\n", validChar);
 
 
 // ------------------------------------------   P7 - saveCharacters()   -----------------------------------------
-  struct Character arr[] = { {
+
+struct Character arr[] = {
+  {
     .characterID = 1,
     .socialClass = MERCHANT,
     .profession = "inn-keeper",
@@ -450,7 +482,75 @@ int main(){
         .quantity = 1
       }
     }
-  } };
+  },
+  {
+    .characterID = 2,
+    .socialClass = MENDICANT,
+    .profession = "beggar",
+    .name = "Sarah Smith",
+    .inventorySize = 2,
+    .inventory = {
+      { .itemID = 123456789,
+        .quantity = 3
+      },
+      { .itemID = 987654321,
+        .quantity = 2
+      }
+    }
+  },
+  {
+    .characterID = 3,
+    .socialClass = ARISTOCRACY,
+    .profession = "noble",
+    .name = "Lord William",
+    .inventorySize = 3, // No inventory
+    .inventory = {
+      { .itemID = 111222333,
+        .quantity = 5
+      },
+      { .itemID = 444555666,
+        .quantity = 1
+      },
+      { .itemID = 777888999,
+        .quantity = 4
+      }
+    }
+  },
+  {
+    .characterID = 4,
+    .socialClass = LABOURER,
+    .profession = "blacksmith",
+    .name = "John Johnson",
+    .inventorySize = 3,
+    .inventory = {
+      { .itemID = 111222333,
+        .quantity = 5
+      },
+      { .itemID = 444555666,
+        .quantity = 1
+      },
+      { .itemID = 777888999,
+        .quantity = 4
+      }
+    }
+  },
+  {
+    .characterID = 5,
+    .socialClass = GENTRY,
+    .profession = "gentleman",
+    .name = "Henry Smithson",
+    .inventorySize = 2,
+    .inventory = {
+      { .itemID = 987654321,
+        .quantity = 2
+      },
+      { .itemID = 222333444,
+        .quantity = 1
+      }
+    }
+  }
+};
+
 
   size_t charArr_size = sizeof(arr)/sizeof(struct Character);
 
@@ -463,5 +563,23 @@ int main(){
   printf("saveChar ( 0 is success): %i\n", actual_result);
 
   fclose(ofps);
+
+// ------------------------------------------   P8 - loadCharacterDetails()   -----------------------------------------
+  const char * savedchar = "savecharacter.dat";
+  fd = open(savedchar, O_RDONLY);
+  size_t numchars = 0;
+  struct Character * charactersArray = NULL;
+
+  res = loadCharacters(&charactersArray, &numchars, fd);
+  close (fd);
+
+
+  printf("loadCharacters return ( 0 is success):\t %i\n", res);
+
+  free(charactersArray);
+
+
+
+
   return 0;
 }
