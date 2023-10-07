@@ -93,7 +93,8 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
     return 1;
   }
 
-   for (uint64_t i = 0; i<itemCount;i++){
+  // Before open file validate everyting and catch error early
+  for (uint64_t i = 0; i<itemCount;i++){
     int itemValid = isValidItemDetails(&itemCpy[i]);
     if (!itemValid){
       return 1;
@@ -105,11 +106,20 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
     return 1;
   }
 
-  //validated. just write everything
-  fwrite(&itemCount,sizeof(uint64_t),1,fptr);
-  fwrite(&itemCpy,sizeof(itemCpy),1,fptr);
+
+  size_t bytesWritten=0;
+  // Swapped sizeof and count to get bytes being written to file
+  bytesWritten+=fwrite(&itemCount,1,sizeof(uint64_t),fptr);
+  bytesWritten+=fwrite(&itemCpy,1,sizeof(itemCpy),fptr);
+
+  if (bytesWritten!= (sizeof(itemCpy) +sizeof(itemCount))){
+      memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
+    return 1;
+  }
   fflush(fptr);
   fclose(fptr);
+  memset(&itemCpy,0,sizeof(itemCpy));
+
   return 0;
 }
 
@@ -128,7 +138,6 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
       return 1;
   }
 
-  //reading the header of the file
   if(fread(nmemb, sizeof(uint64_t), 1, fptr)!=1){
     return 1;
   }
@@ -162,7 +171,9 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
 
 
 /**
- * This function checks if a string is a valid name, returning 1 on success and 0 on failure.
+ * This function checks if a string is a valid name.
+ * The incomming string should return true with function isgraph()
+ * Return 1 on success and 0 on failure.
  *
  * @param str The string to validate.
  * @return 1 if valid, 0 if not.
@@ -189,7 +200,10 @@ int isValidName(const char *str) {
 }
 
 /**
- * This function checks if a string is a valid multi-word field, returning 1 on success and 0 on failure.
+ * This function checks if a string is a valid multiword.
+ * The incomming parameter should return true with function isgraph()
+ * The incomming parameter is allowed to have spaces but not at the start or end
+ * Return 1 on success and 0 on failure.
  *
  * @param str The string to validate.
  * @return 1 if valid, 0 if not.
@@ -230,6 +244,9 @@ int isValidItemDetails(const struct ItemDetails *id) {
   struct ItemDetails itemCpy;
   memset(&itemCpy,0,sizeof (struct ItemDetails ));
   memcpy (&itemCpy, id, sizeof(struct ItemDetails));
+  if(memcmp(id,&itemCpy,sizeof(struct ItemDetails))){
+    return 0;
+  }
 
   // 0 is false/invalid
   int checkID, checkName, checkMultiword;
@@ -237,9 +254,8 @@ int isValidItemDetails(const struct ItemDetails *id) {
   checkName=isValidName(itemCpy.name);
   checkMultiword=isValidMultiword(itemCpy.desc);
 
-  //printf("%i\t%i\t%i\n",checkID,checkName,checkMultiword);
   int result =(checkID && checkName && checkMultiword);
-
+  memset(&itemCpy,0,sizeof (struct ItemDetails ));
   return result; 
 }
 
@@ -262,11 +278,9 @@ int isValidCharacter(const struct Character * c) {
     return 0;
   }
 
-  // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount;
+  uint64_t totalItemCount = 0;
+  // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount
   int checkLst[6];
-  if (memset(&checkLst, 0, sizeof(checkLst)) == NULL) {
-    return 0;
-  };
 
   checkLst[0] = (charCpy.characterID <= UINT64_MAX);
   checkLst[1]= (charCpy.socialClass >= MENDICANT && charCpy.socialClass <= ARISTOCRACY);// check if within the enum range
@@ -274,7 +288,6 @@ int isValidCharacter(const struct Character * c) {
   checkLst[3]=isValidMultiword(charCpy.name);
   checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
   checkLst[5]= 1;
-  uint64_t total = 0;
   if (checkLst[4]==0){
     return 0;
   }
@@ -285,9 +298,9 @@ int isValidCharacter(const struct Character * c) {
       checkLst[5]=0;
       return 0;
     }
-    total += charCpy.inventory[i].quantity;
+    totalItemCount += charCpy.inventory[i].quantity;
   }
-  checkLst[5]=(total<=MAX_ITEMS);
+  checkLst[5]=(totalItemCount<=MAX_ITEMS);
 
   
   //checks all fields in struct passed validation.
@@ -297,13 +310,13 @@ int isValidCharacter(const struct Character * c) {
         break;
     }
   }
+
+  memset (&charCpy, 0, sizeof(struct Character));
   return 1;
 }
 
 
 /**
- * @brief Save an array of Character to a file descriptor.
- *
  * This function validates the data, opens a file descriptor for writing,
  * and writes the data to the file. 
  * It is valid iff all character entries passes isValidCharacter() function
@@ -328,7 +341,7 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
     return 1;
   }
 
-
+  // Before open file validate everyting and catch error early
   for (uint64_t i = 0; i<charCount;i++){
     int charValid = isValidCharacter(&charCpy[i]);
     if (!charValid){
@@ -340,13 +353,19 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
   if(fptr==NULL){
     return 1;
   }
-  //validated. just dump the whole struct
-  fwrite(&charCount,sizeof(uint64_t),1,fptr);
-  fwrite(&charCpy,sizeof(charCpy),1,fptr);
-  
+
+  size_t bytesWritten=0;
+  // Swapped sizeof and count to get bytes being written to file
+  bytesWritten+=fwrite(&charCount,1,sizeof(uint64_t),fptr);
+  bytesWritten+=fwrite(&charCpy,1,sizeof(charCpy),fptr);
+
+  if (bytesWritten!= (sizeof(charCpy) +sizeof(charCount))){
+      memset(&charCpy,0,sizeof(charCpy));
+    return 1;
+  }
   fflush(fptr);
   fclose(fptr);
-
+  memset(&charCpy,0,sizeof(charCpy));
   return 0;
 }
 
@@ -369,31 +388,23 @@ int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
   }
 
   if(fread(nmemb, sizeof(uint64_t), 1, fptr)!=1){
-
     return 1;
   }
 
 struct Character* newCharPtr = calloc(*nmemb, sizeof(struct Character));
     if (newCharPtr == NULL ) {
-
-            free(newCharPtr);
-
+        free(newCharPtr);
         fclose(fptr);
         return 1;
     }
 
 for (size_t i = 0; i < *nmemb; i++) {
   if(fread(&newCharPtr[i],sizeof(struct Character),1,fptr)!=1){
-
     free(newCharPtr);
-
     return 1;
   }
   if(!isValidCharacter(&newCharPtr[i])){
-    printf("failed here%ld\n",i);
-
     free(newCharPtr);
-
     return 1;
   }
 }
@@ -416,10 +427,6 @@ return 0;
  * @return 0 on success, 1 on deserialization error, 2 on permission or other errors.
 */
 int secureLoad(const char *filepath) {
-
-  //aquire permission and load itemdetails adn char details?and drops out
-  // check if ruid (getuid)and groupid is allowed to access the file
-
   struct stat filestats;
   int fstat = stat(filepath,&filestats);
   printf("%d\n",filestats.st_mode);
@@ -427,13 +434,8 @@ int secureLoad(const char *filepath) {
   if (fstat !=0 || !S_ISREG(filestats.st_mode)){
     return 2;
   }
-  // gid_t originalUID=getuid();
-  // gid_t originalGID=getgid();
   gid_t originalEUID=geteuid();
   gid_t originalEGID=getegid();
-  //check all privilege level first before changing. Only change the euid and egid
-  //for better security
-  
  if (!(filestats.st_mode & S_IROTH)) {
     if (!(filestats.st_mode & S_IRGRP)) {
       printf("Group users cannot read\n");
@@ -463,10 +465,10 @@ int secureLoad(const char *filepath) {
   size_t itemCount = 0;
   struct ItemDetails * loadedItems = NULL;
 
-
+  // open file and immedialely drop privilege after opening. Opened file should still be readable.
   int filedesc = open(filepath, O_RDONLY);
   if(filedesc==-1){
-    return 2;     // failed to open fiel
+    return 2;     
   }
 
   seteuid(originalEUID);
@@ -493,23 +495,42 @@ void playGame(struct ItemDetails* ptr, size_t nmemb){
 
 }
 
+/**
+ * For Testing purposes only.
+ * This function saves an array of ItemDetails to a binary file. It first opens
+ * the file, then calls saveItemDetails to perform the actual data saving. After
+ * the data is saved, the file is closed.
+ *
+ * @param arr Pointer to the array of ItemDetails to be saved.
+ * @param nmemb Number of elements in the array.
+ * @param filename Path to the binary file where data will be saved.
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int saveItemDetailsToPath(const struct ItemDetails* arr, size_t nmemb, const char* filename) {
+
+  FILE *ofp = fopen(filename, "wb");
+  assert(ofp != NULL);
+  int fd = fileno(ofp);
+  assert(fd != -1);
+  int res = saveItemDetails(arr, nmemb, fd);
+  fclose(ofp);
+  return res;
+}
+
 
 
 // ============MAIN=============================================MAIN============================================================MAIN===============
 int main(){
   int fd;
   int res;
+  FILE *ofp;
 
 // ------------------------------------------   P1 - saveItemDetails()   -----------------------------------------
   struct ItemDetails itemArr[] = {{ .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }};
   size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
-
-  FILE *ofp = fopen("submit_result.dat", "wb");
-  assert(ofp != NULL);
-  fd = fileno(ofp);
-  assert(fd != -1);
-  res = saveItemDetails(itemArr, itemArr_size, fd);
-  fclose(ofp);
+  const char *fpath = "submit_result.dat";
+  res = saveItemDetailsToPath(itemArr,itemArr_size,fpath);
   assert(res == 0); //success is 0
   printf("P1\tSave item success\n");
 
