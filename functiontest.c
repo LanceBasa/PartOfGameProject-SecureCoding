@@ -6,14 +6,35 @@
 #include <stddef.h>
 #include <stdint.h>
 #include <assert.h>
+
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 
-static_assert (sizeof(size_t)==8, "we assume that its running on 64bit");
+
+static_assert (sizeof(size_t)==8);
 #define DEFAULT_BUFFER_SIZE 512
 #define MAX_ITEMS 10
+
+
+// #define _POSIX_C_SOURCE 200809L//strnlen
+
+// #include <p_and_p.h>
+// #include <ctype.h>
+// #include <stdio.h>
+// #include <string.h>
+// #include <stdlib.h>
+// #include <assert.h>
+// #include <fcntl.h>
+// #include <unistd.h>
+// #include <sys/stat.h>
+// static_assert (sizeof(size_t)==8);
+
+
+
+
 
 
 
@@ -47,10 +68,18 @@ struct Character {
 
 //just declaring
 int isValidItemDetails(const struct ItemDetails *id);
+void playGame(struct ItemDetails* ptr, size_t nmemb);
 
 
-
-
+/**
+ * This function validates the data, opens the incomming file descriptor for writing
+ * and writes the data to the file. It returns 0 on success and 1 on failure.
+ *
+ * @param arr The array of ItemDetails to save.
+ * @param nmemb The number of elements in the array.
+ * @param fd The file descriptor to write to.
+ * @return 0 on success, 1 on failure.
+ */
 int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   if (nmemb > UINT64_MAX || nmemb==0){
     return 1;
@@ -84,7 +113,15 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   return 0;
 }
 
-
+/**
+ * This function reads ItemDetails from a file descriptor, validates the data
+ * and stores it in the provided pointer. It returns 0 on success and 1 on failure.
+ *
+ * @param ptr Pointer to store the loaded data.
+ * @param nmemb Number of elements loaded.
+ * @param fd File descriptor to read from.
+ * @return 0 on success, 1 on failure.
+ */
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
   FILE* fptr = fdopen(fd, "rb");
   if (fptr == NULL) {
@@ -96,7 +133,7 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
     return 1;
   }
 
-  // Create a new struct ItemDetails pointer
+  // Create a new struct ItemDetails pointer and allocate space
   struct ItemDetails* newItmPtr = calloc(*nmemb, sizeof(struct ItemDetails));
   if (newItmPtr == NULL) {
     fclose(fptr);
@@ -125,8 +162,11 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
 
 
 /**
- * return 1 on success and 0 on fail
-*/
+ * This function checks if a string is a valid name, returning 1 on success and 0 on failure.
+ *
+ * @param str The string to validate.
+ * @return 1 if valid, 0 if not.
+ */
 int isValidName(const char *str) {
   if (str==NULL){
       return 0;
@@ -149,8 +189,11 @@ int isValidName(const char *str) {
 }
 
 /**
- * return 1 on success and 0 on fail
-*/
+ * This function checks if a string is a valid multi-word field, returning 1 on success and 0 on failure.
+ *
+ * @param str The string to validate.
+ * @return 1 if valid, 0 if not.
+ */
 int isValidMultiword(const char *str) {
   if (str==NULL){
     return 0;
@@ -175,12 +218,13 @@ int isValidMultiword(const char *str) {
 
 
 /**
- * checks whether an ItemDetails struct is valid – it is valid iff all of its fields are valid (as
- * described in the documentation for the struct and elsewhere in this project specification).
- * The name and desc fields must be valid name and multi-word fields, respectively; they also
- * must not be empty strings. This function returns 1 if the struct is valid, and 0 if not.
-*/
-// id name and multiwword
+ * This function checks if an itemDetail srtuct is valid. 
+ * Calls isValidName and isValidMultiword to check struct fields validity.
+ * Return 1 on success and 0 on failure.
+ *
+ * @param id pointer to the item detail struct
+ * @return 1 if valid, 0 if not.
+ */
 int isValidItemDetails(const struct ItemDetails *id) {
 
   struct ItemDetails itemCpy;
@@ -200,21 +244,23 @@ int isValidItemDetails(const struct ItemDetails *id) {
 }
 
 /**
- * checks whether a Character struct is valid – it is valid iff all of its fields are valid (as
-described in the documentation for the struct and elsewhere in this project specification).
-The following are all necessary preconditions for validity of the struct:
-• the profession field must be a valid name field, and must not be the empty string;
-• the name field must be a valid multi-word field, and must not be the empty string;
-• the total number of items carried (that is: the sum of the quantity fields of the
-ItemCarried structs that form part of the inventory) must not exceed MAX_ITEMS; and
-• inventorySize must be less than or equal to MAX_ITEMS.
-This function returns 1 if the struct is valid, and 0 if not.
+ * This function checks whether a Character struct is valid 
+ * It is valid iff all of its fields are valid 
+ *    the profession field must be a valid name field
+ *    the name field must be a valid multi-word field
+ *    the total number of items carried must not exceed MAX_ITEMS
+ *    inventorySize must be less than or equal to MAX_ITEMS.
+ * Returns 1 if the struct is valid, and 0 if not.
+ * @param c Pointer to the Character struct to validate.
+ * @return 1 if valid, 0 if not.
 */
 int isValidCharacter(const struct Character * c) {
   struct Character charCpy;
   memset (&charCpy, 0, sizeof(struct Character));
   memcpy (&charCpy, c, sizeof(struct Character));
-  //need to check if memset success?
+  if(memcmp(c,&charCpy,sizeof(struct ItemDetails))){
+    return 0;
+  }
 
   // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount;
   int checkLst[6];
@@ -229,36 +275,23 @@ int isValidCharacter(const struct Character * c) {
   checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
   checkLst[5]= 1;
   uint64_t total = 0;
-
   if (checkLst[4]==0){
-    printf("failed here%ld\n",charCpy.inventorySize);
-
     return 0;
   }
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i<charCpy.inventorySize;i++){
-
     if(!(charCpy.inventory[i].itemID <= UINT64_MAX)){
       checkLst[5]=0;
       return 0;
     }
-
-    // printf("%ld\n",charCpy.inventory[i].quantity);
-    // if (charCpy.inventory[i].quantity<MAX_ITEMS){
-    //   return 0;
-    // }
-
     total += charCpy.inventory[i].quantity;
-    //printf("total items%li\n", total);
-    // printf("qtt%ld\n",charCpy.inventory[i].quantity);
-  };
+  }
   checkLst[5]=(total<=MAX_ITEMS);
 
   
   //checks all fields in struct passed validation.
   for (int i = 0; i < 6; i++) {
-
     if (checkLst[i] != 1) {
         return 0; 
         break;
@@ -269,16 +302,18 @@ int isValidCharacter(const struct Character * c) {
 
 
 /**
- * must use validations  to validate records before saving
- * Header  - uint64 specifying the num of characters in saved file
- * Each char records have the following
- *  char ID - uint64
- *  socialclass - enum
- *  profession - namefield
- *  name - multiword field
- *  inventory size - uint64 number of unique items
- *  inventoryitem - inventory size * itemCarried(has itemid and quantity)
- * */ 
+ * @brief Save an array of Character to a file descriptor.
+ *
+ * This function validates the data, opens a file descriptor for writing,
+ * and writes the data to the file. 
+ * It is valid iff all character entries passes isValidCharacter() function
+ * It returns 0 on success and 1 on failure.
+ *
+ * @param arr The array of Character to save.
+ * @param nmemb The number of elements in the array.
+ * @param fd The file descriptor to write to.
+ * @return 0 on success, 1 on failure.
+ */
 int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
 
   if (nmemb > UINT64_MAX || nmemb==0){
@@ -315,7 +350,18 @@ int saveCharacters(struct Character *arr, size_t nmemb, int fd) {
   return 0;
 }
 
-// must use validations to validate records before loading
+/**
+ * This function reads Character from a file descriptor, validates the data
+ * and stores it in the incomming pointer. 
+ * It created and allocates space depending on the number of Characters to load
+ * Each characters read must pass isValidCharacter() validation
+ * It returns 0 on success and 1 on failure.
+ *
+ * @param ptr Pointer to store the loaded data.
+ * @param nmemb Number of elements loaded.
+ * @param fd File descriptor to read from.
+ * @return 0 on success, 1 on failure.
+ */
 int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
   FILE *fptr = fdopen(fd,"rb");
   if(fptr==NULL){
@@ -327,26 +373,26 @@ int loadCharacters(struct Character** ptr, size_t* nmemb, int fd) {
     return 1;
   }
 
-struct Character* newPtr = calloc(*nmemb, sizeof(struct Character));
-    if (newPtr == NULL ) {
+struct Character* newCharPtr = calloc(*nmemb, sizeof(struct Character));
+    if (newCharPtr == NULL ) {
 
-            free(newPtr);
+            free(newCharPtr);
 
         fclose(fptr);
         return 1;
     }
 
 for (size_t i = 0; i < *nmemb; i++) {
-  if(fread(&newPtr[i],sizeof(struct Character),1,fptr)!=1){
+  if(fread(&newCharPtr[i],sizeof(struct Character),1,fptr)!=1){
 
-    free(newPtr);
+    free(newCharPtr);
 
     return 1;
   }
-  if(!isValidCharacter(&newPtr[i])){
+  if(!isValidCharacter(&newCharPtr[i])){
     printf("failed here%ld\n",i);
 
-    free(newPtr);
+    free(newCharPtr);
 
     return 1;
   }
@@ -356,8 +402,95 @@ fclose(fptr);
 if (*ptr != NULL) {
     free(*ptr);
 }
-  *ptr = newPtr;
+  *ptr = newCharPtr;
 return 0;
+}
+
+
+/**
+ * This function attempt to acquire appropriate permissions for opening the ItemDetails database
+ * and load the database from the specified file, and then call the function playgame() to which it should pass the loaded data and the number of items in the loaded data. 
+ * It returns 0 on success, 1 on deserialization error, and 2 on permission or other errors.
+ * 
+ * @param filepath The path to the file to load data from.
+ * @return 0 on success, 1 on deserialization error, 2 on permission or other errors.
+*/
+int secureLoad(const char *filepath) {
+
+  //aquire permission and load itemdetails adn char details?and drops out
+  // check if ruid (getuid)and groupid is allowed to access the file
+
+  struct stat filestats;
+  int fstat = stat(filepath,&filestats);
+  printf("%d\n",filestats.st_mode);
+  // fail to open get stats or maybe not a file
+  if (fstat !=0 || !S_ISREG(filestats.st_mode)){
+    return 2;
+  }
+  // gid_t originalUID=getuid();
+  // gid_t originalGID=getgid();
+  gid_t originalEUID=geteuid();
+  gid_t originalEGID=getegid();
+  //check all privilege level first before changing. Only change the euid and egid
+  //for better security
+  
+ if (!(filestats.st_mode & S_IROTH)) {
+    if (!(filestats.st_mode & S_IRGRP)) {
+      printf("Group users cannot read\n");
+      if (!(filestats.st_mode & S_IRUSR)) {
+        printf("User users cannot read all reads are blocked\n");
+        return 2;
+      }else{
+        printf("Yes owner User can read\n");
+
+        if((originalEUID!= filestats.st_uid) && (seteuid(filestats.st_uid)!=0)){
+          printf("user set fails\n");
+          return 2;
+        }
+        printf("user set success\n");
+      }
+    }else{
+      printf("Yes Group users can read set gid to getegid\n");
+      if((originalEGID!= filestats.st_gid) && (setegid(filestats.st_gid)!=0)){
+          printf("user set fails\n");
+          return 2;
+        }
+        printf("group set success\n");
+    }
+  }
+
+  printf("Escalated ruid:%d\teuid:%d\tgid:%d\tgeid:%d\n", getuid(),geteuid(),getgid(),getegid());
+  size_t itemCount = 0;
+  struct ItemDetails * loadedItems = NULL;
+
+
+  int filedesc = open(filepath, O_RDONLY);
+  if(filedesc==-1){
+    return 2;     // failed to open fiel
+  }
+
+  seteuid(originalEUID);
+  setegid(originalEGID);
+
+  int isloaded = loadItemDetails(&loadedItems, &itemCount, filedesc);
+  if (isloaded==1){
+    return 1;
+  }
+  close(filedesc);
+
+  playGame(loadedItems,itemCount);
+
+
+  printf("Close ruid:%d\teuid:%d\tgid:%d\tgeid:%d\n", getuid(),geteuid(),getgid(),getegid());
+  free(loadedItems);
+  return 0;
+}
+
+
+
+void playGame(struct ItemDetails* ptr, size_t nmemb){
+  printf("success %d \t%li\n", *ptr[1].name, nmemb);
+
 }
 
 
@@ -376,8 +509,8 @@ int main(){
   fd = fileno(ofp);
   assert(fd != -1);
   res = saveItemDetails(itemArr, itemArr_size, fd);
-  assert(res == 0);
   fclose(ofp);
+  assert(res == 0); //success is 0
   printf("P1\tSave item success\n");
 
   // ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
@@ -387,16 +520,11 @@ int main(){
   struct ItemDetails * itemsArr = NULL;
   res = loadItemDetails(&itemsArr, &numItems, fd);
   close (fd);
-
-  // for (size_t i = 0;i<numItems;i++){
-  //     printf("%lu \t %s\t %s \n", itemsArr[i].itemID, itemsArr[i].name, itemsArr[i].desc);
-  // }
-  printf("loadItemDetails return ( 0 is success):\t %i\n", res);
-
   free(itemsArr);
+  assert(res == 0); //success is 0
+  printf("P2\tLoad item Details test1 success\n");
 
-  
-
+  //test 2
 
  struct ItemDetails items001_expectedItems_test2[] = {
     { .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." },
@@ -415,39 +543,31 @@ int main(){
 
     ofp = fopen(infile_path, "rb");
     fd = fileno(ofp);
-
     numItems = 0;
     itemsArr = NULL;
     res = loadItemDetails(&itemsArr, &numItems, fd);
-
-    
-
     // pre-requisite: we got the expected number of items
     assert(numItems == items001_expectedSize_test2);
-
     free(itemsArr);
-
 }
-
-
-  printf("loadItemDetails2 return ( 0 is success):\t %i\n", res);
-
-
-
+  printf("P2\tLoad Item Details test2 success\n");
 
 
 // ------------------------------------------   P3 - isValidName()   -----------------------------------------
-  int validName = isValidName("asdasd");
-  printf("valid name return ( 0 is fail):\t %i\n", validName);
+  int validName = isValidName(items001_expectedItems_test2[3].name);
+  assert(validName==1); //success is 1
+  printf("P3\tisValidName checker success\n");
 
 // ------------------------------------------   P4 - isValidMultiword()   -----------------------------------------
 
-  int validMultiword = isValidMultiword("asdad");
-  printf("valid Multiword return ( 0 is fail): %i\n", validMultiword);
+  int validMultiword = isValidMultiword(items001_expectedItems_test2[4].desc);
+  assert(validMultiword==1);//success is 1
+  printf("P4\tisvalidMultiword checker success\n");
 
 // ------------------------------------------   P5 - isValidItemDetail()   -----------------------------------------
   int validItemDeets = isValidItemDetails(&itemArr[0]);
-  printf("valid Item return ( 0 is fail): %i\n", validItemDeets);
+  assert(validItemDeets==1);//success is 1
+  printf("P5\tisValidItemDetails checker success\n");
 
 // ------------------------------------------   P6 - isValidCharacter()   -----------------------------------------
   const struct Character sample_character = {
@@ -465,8 +585,8 @@ int main(){
 
 
   int validChar = isValidCharacter(&sample_character);
-   printf("valid char return ( 0 is fail): %i\n", validChar);
-
+  assert(validChar==1);//success is 1
+  printf("P6\tisValidCharacter checker success\n");
 
 // ------------------------------------------   P7 - saveCharacters()   -----------------------------------------
 
@@ -559,10 +679,10 @@ struct Character arr[] = {
   int fdc = fileno(ofps);
   assert(fdc != -1);
   int actual_result = saveCharacters(arr, charArr_size, fdc);
-  assert(actual_result == 0);
-  printf("saveChar ( 0 is success): %i\n", actual_result);
-
   fclose(ofps);
+
+  assert(actual_result == 0);
+  printf("P7 \tsaveCharacters checker success \n");
 
 // ------------------------------------------   P8 - loadCharacterDetails()   -----------------------------------------
   const char * savedchar = "savecharacter.dat";
@@ -573,13 +693,17 @@ struct Character arr[] = {
   res = loadCharacters(&charactersArray, &numchars, fd);
   close (fd);
 
-
-  printf("loadCharacters return ( 0 is success):\t %i\n", res);
+  assert(actual_result == 0);
+  printf("P8\tloadCharacters checker success\n");
 
   free(charactersArray);
 
+// ------------------------------------------   P9 - secureLoad()   -----------------------------------------
 
-
-
+  char *filepth = "items001.dat";
+  res = secureLoad(filepth);
+  assert(res==0);
+  printf("P8\tsecureLoad checker success\n");
+  
   return 0;
 }

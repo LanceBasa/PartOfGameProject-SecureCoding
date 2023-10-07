@@ -5,9 +5,8 @@
 #include <stdlib.h>
 
 #include <assert.h>
-#include <stddef.h>
 
-static_assert (sizeof(size_t)==8, "we assume that its running on 64bit");
+static_assert (sizeof(size_t)==8);
 
 /**
  * serializes an array of ItemDetails structs. It should store the array using the itemDetails file format.
