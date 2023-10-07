@@ -279,22 +279,18 @@ int isValidCharacter(const struct Character * c) {
   }
 
   uint64_t totalItemCount = 0;
+
   // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount
   int checkLst[6];
-
   checkLst[0] = (charCpy.characterID <= UINT64_MAX);
   checkLst[1]= (charCpy.socialClass >= MENDICANT && charCpy.socialClass <= ARISTOCRACY);// check if within the enum range
   checkLst[2]=isValidName(charCpy.profession);
   checkLst[3]=isValidMultiword(charCpy.name);
   checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
-  checkLst[5]= 1;
-  if (checkLst[4]==0){
-    return 0;
-  }
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i<charCpy.inventorySize;i++){
-    if(!(charCpy.inventory[i].itemID <= UINT64_MAX)){
+    if((charCpy.inventory[i].quantity > MAX_ITEMS)){
       checkLst[5]=0;
       return 0;
     }
@@ -303,7 +299,7 @@ int isValidCharacter(const struct Character * c) {
   checkLst[5]=(totalItemCount<=MAX_ITEMS);
 
   
-  //checks all fields in struct passed validation.
+  //checks all fields in struct passed validation. Must be all 1 to pass
   for (int i = 0; i < 6; i++) {
     if (checkLst[i] != 1) {
         return 0; 
@@ -706,7 +702,7 @@ struct Character arr[] = {
   printf("P7 \tsaveCharacters checker success \n");
 
 // ------------------------------------------   P8 - loadCharacterDetails()   -----------------------------------------
-  const char * savedchar = "savecharacter.dat";
+  const char * savedchar = "characters02.dat";
   fd = open(savedchar, O_RDONLY);
   size_t numchars = 0;
   struct Character * charactersArray = NULL;

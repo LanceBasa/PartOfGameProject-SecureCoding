@@ -258,14 +258,11 @@ int isValidCharacter(const struct Character *c) {
   checkLst[3] = isValidMultiword(charCpy.name);
   checkLst[4] =
       (charCpy.inventorySize <= MAX_ITEMS); // num of items carried by char
-  checkLst[5] = 1;
-  if (checkLst[4] == 0) {
-    return 0;
-  }
+
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i < charCpy.inventorySize; i++) {
-    if (!(charCpy.inventory[i].itemID <= UINT64_MAX)) {
+    if ((charCpy.inventory[i].quantity > MAX_ITEMS)) {
       checkLst[5] = 0;
       return 0;
     }
