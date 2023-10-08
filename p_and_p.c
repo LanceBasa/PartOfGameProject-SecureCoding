@@ -12,7 +12,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 
-static_assert (sizeof(size_t)==8);
+static_assert (sizeof(size_t)==8,"using 64-bit");
 
 /**
  * This function validates the data, opens the incomming file descriptor for writing
@@ -449,5 +449,7 @@ int secureLoad(const char *filepath) {
   return 0;
 }
 
-void playGame(struct ItemDetails* ptr, size_t nmemb);
+void playGame(struct ItemDetails* ptr, size_t nmemb){
+  printf("success %d \t%li\n", *ptr[1].name, nmemb);
+}
 

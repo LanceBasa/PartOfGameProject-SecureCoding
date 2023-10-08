@@ -87,7 +87,9 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   uint64_t itemCount = (uint64_t) nmemb;
   
   struct ItemDetails itemCpy[itemCount];
-  memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
+  if(memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount)==NULL){
+    return 1;
+  }
   memcpy(&itemCpy,arr,sizeof(struct ItemDetails)*itemCount);
   if(memcmp(arr,&itemCpy,sizeof(struct ItemDetails)*nmemb)){
     return 1;
@@ -467,8 +469,12 @@ int secureLoad(const char *filepath) {
     return 2;     
   }
 
-  seteuid(originalEUID);
-  setegid(originalEGID);
+  if(seteuid(originalEUID)){
+    return 2;
+  }
+  if (setegid(originalEGID)){
+    return 2;
+  }
 
   int isloaded = loadItemDetails(&loadedItems, &itemCount, filedesc);
   if (isloaded==1){

@@ -1,0 +1,3 @@
+Checks: '-clang-diagnostic-pointer-sign, -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling'
+HeaderFilterRegex: '.*'  # Optional, to specify which files to include
+
