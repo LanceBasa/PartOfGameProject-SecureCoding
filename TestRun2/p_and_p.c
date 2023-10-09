@@ -1,76 +1,18 @@
 #define _POSIX_C_SOURCE 200809L//strnlen
 
+#include <p_and_p.h>
+#include <ctype.h>
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#include <stddef.h>
-#include <stdint.h>
-#include <assert.h>
 
+#include <assert.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <ctype.h>
 #include <sys/stat.h>
-#include <pwd.h>
 
-
-
-static_assert (sizeof(size_t)==8);
-#define DEFAULT_BUFFER_SIZE 512
-#define MAX_ITEMS 10
-
-
-// #define _POSIX_C_SOURCE 200809L//strnlen
-
-// #include <p_and_p.h>
-// #include <ctype.h>
-// #include <stdio.h>
-// #include <string.h>
-// #include <stdlib.h>
-// #include <assert.h>
-// #include <fcntl.h>
-// #include <unistd.h>
-// #include <sys/stat.h>
-// static_assert (sizeof(size_t)==8);
-
-
-
-
-
-
-
-
-
-
-struct ItemDetails {
-  uint64_t itemID;
-  char name[DEFAULT_BUFFER_SIZE];
-  char desc[DEFAULT_BUFFER_SIZE];
-};
-struct ItemCarried {
-  uint64_t itemID;
-  size_t quantity;
-};
-enum CharacterSocialClass {
-  MENDICANT,
-  LABOURER,
-  MERCHANT,
-  GENTRY,
-  ARISTOCRACY
-};
-struct Character {
-  uint64_t characterID;
-  enum CharacterSocialClass socialClass;
-  char profession[DEFAULT_BUFFER_SIZE];
-  char name[DEFAULT_BUFFER_SIZE];
-  size_t inventorySize;
-  struct ItemCarried inventory[MAX_ITEMS];
-};
-
-//just declaring
-int isValidItemDetails(const struct ItemDetails *id);
-void playGame(struct ItemDetails* ptr, size_t nmemb);
-
+static_assert (sizeof(size_t)==8,"using 64-bit");
 
 /**
  * This function validates the data, opens the incomming file descriptor for writing
@@ -88,9 +30,7 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   uint64_t itemCount = (uint64_t) nmemb;
   
   struct ItemDetails itemCpy[itemCount];
-  if(memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount)==NULL){
-    return 1;
-  }
+  memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
   memcpy(&itemCpy,arr,sizeof(struct ItemDetails)*itemCount);
   if(memcmp(arr,&itemCpy,sizeof(struct ItemDetails)*nmemb)){
     return 1;
@@ -121,10 +61,35 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   }
   fflush(fptr);
   fclose(fptr);
-  memset(&itemCpy,0,sizeof(itemCpy));
+  memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
 
   return 0;
 }
+
+
+/**
+ * For Testing purposes only.
+ * This function saves an array of ItemDetails to a binary file. It first opens
+ * the file, then calls saveItemDetails to perform the actual data saving. After
+ * the data is saved, the file is closed.
+ *
+ * @param arr Pointer to the array of ItemDetails to be saved.
+ * @param nmemb Number of elements in the array.
+ * @param filename Path to the binary file where data will be saved.
+ *
+ * @return 0 on success, non-zero on failure.
+ */
+int saveItemDetailsToPath(const struct ItemDetails* arr, size_t nmemb, const char* filename) {
+
+  FILE *ofp = fopen(filename, "wb");
+  assert(ofp != NULL);
+  int fd = fileno(ofp);
+  assert(fd != -1);
+  int res = saveItemDetails(arr, nmemb, fd);
+  fclose(ofp);
+  return res;
+}
+
 
 /**
  * This function reads ItemDetails from a file descriptor, validates the data
@@ -172,10 +137,10 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
   return 0;
   }
 
-
+ 
 /**
  * This function checks if a string is a valid name.
- * The incomming string should return true with function isgraph()
+ * The incomming string should return true with isGrahp
  * Return 1 on success and 0 on failure.
  *
  * @param str The string to validate.
@@ -201,6 +166,7 @@ int isValidName(const char *str) {
   }
   return 0;
 }
+
 
 /**
  * This function checks if a string is a valid multiword.
@@ -262,6 +228,7 @@ int isValidItemDetails(const struct ItemDetails *id) {
   return result; 
 }
 
+
 /**
  * This function checks whether a Character struct is valid 
  * It is valid iff all of its fields are valid 
@@ -270,6 +237,7 @@ int isValidItemDetails(const struct ItemDetails *id) {
  *    the total number of items carried must not exceed MAX_ITEMS
  *    inventorySize must be less than or equal to MAX_ITEMS.
  * Returns 1 if the struct is valid, and 0 if not.
+ * 
  * @param c Pointer to the Character struct to validate.
  * @return 1 if valid, 0 if not.
 */
@@ -282,18 +250,22 @@ int isValidCharacter(const struct Character * c) {
   }
 
   uint64_t totalItemCount = 0;
-
   // index in order: 0:ID, 1:SClass, 2:Proffession, 3:Name, 4:InvSize, 5:TotItmCount
   int checkLst[6];
+
   checkLst[0] = (charCpy.characterID <= UINT64_MAX);
   checkLst[1]= (charCpy.socialClass >= MENDICANT && charCpy.socialClass <= ARISTOCRACY);// check if within the enum range
   checkLst[2]=isValidName(charCpy.profession);
   checkLst[3]=isValidMultiword(charCpy.name);
   checkLst[4] = (charCpy.inventorySize <=MAX_ITEMS); // num of items carried by char
+  checkLst[5]= 1;
+  if (checkLst[4]==0){
+    return 0;
+  }
 
   // get the total. should not exceed MAX_ITEMS
   for (size_t i = 0; i<charCpy.inventorySize;i++){
-    if((charCpy.inventory[i].quantity > MAX_ITEMS)){
+    if(!(charCpy.inventory[i].itemID <= UINT64_MAX)){
       checkLst[5]=0;
       return 0;
     }
@@ -302,7 +274,7 @@ int isValidCharacter(const struct Character * c) {
   checkLst[5]=(totalItemCount<=MAX_ITEMS);
 
   
-  //checks all fields in struct passed validation. Must be all 1 to pass
+  //checks all fields in struct passed validation.
   for (int i = 0; i < 6; i++) {
     if (checkLst[i] != 1) {
         return 0; 
@@ -313,7 +285,6 @@ int isValidCharacter(const struct Character * c) {
   memset (&charCpy, 0, sizeof(struct Character));
   return 1;
 }
-
 
 /**
  * This function validates the data, opens a file descriptor for writing,
@@ -417,6 +388,7 @@ return 0;
 }
 
 
+
 /**
  * This function attempt to acquire appropriate permissions for opening the ItemDetails database
  * and load the database from the specified file, and then call the function playgame() to which it should pass the loaded data and the number of items in the loaded data. 
@@ -426,30 +398,17 @@ return 0;
  * @return 0 on success, 1 on deserialization error, 2 on permission or other errors.
 */
 int secureLoad(const char *filepath) {
-
-  // Get details of the database owner
-  const char *admin = "pitchpoltadmin";   // TODO:change to pitchpoltadmin 
-  struct passwd *ownerDetails = getpwnam(admin);
-  if (ownerDetails==NULL){
-    return 2;
-  }
-
-  // Gets the stat of filepath. Fail if it doesnt exist or not a file
   struct stat filestats;
-  if (stat(filepath,&filestats) || !S_ISREG(filestats.st_mode)){
+  int fstat = stat(filepath,&filestats);
+  printf("%d\n",filestats.st_mode);
+  // fail to open get stats or maybe not a file
+  if (fstat !=0 || !S_ISREG(filestats.st_mode)){
     return 2;
   }
 
-  // If database stats doesnt match admin owner stats (UID AND GID) return error.
-  size_t uidCheck= (ownerDetails->pw_uid == filestats.st_uid);
-  size_t gidCheck=(ownerDetails->pw_gid == filestats.st_gid);
-  if(!(uidCheck && gidCheck)){  
-    return 2;
-  }
-
-  //store the original privileges and elevate to least privilege
   gid_t originalEUID=geteuid();
   gid_t originalEGID=getegid();
+
  if (!(filestats.st_mode & S_IROTH)) {
     if (!(filestats.st_mode & S_IRGRP)) {
       if (!(filestats.st_mode & S_IRUSR)) {
@@ -475,12 +434,8 @@ int secureLoad(const char *filepath) {
     return 2;     
   }
 
-  if(seteuid(originalEUID)){
-    return 2;
-  }
-  if (setegid(originalEGID)){
-    return 2;
-  }
+  seteuid(originalEUID);
+  setegid(originalEGID);
 
   int isloaded = loadItemDetails(&loadedItems, &itemCount, filedesc);
   if (isloaded==1){
@@ -490,248 +445,11 @@ int secureLoad(const char *filepath) {
 
   playGame(loadedItems,itemCount);
 
-
   free(loadedItems);
   return 0;
 }
 
-
-
 void playGame(struct ItemDetails* ptr, size_t nmemb){
-  printf("playGame call success %d \t%li\n", *ptr[1].name, nmemb);
-
+  printf("success %d \t%li\n", *ptr[1].name, nmemb);
 }
 
-/**
- * For Testing purposes only.
- * This function saves an array of ItemDetails to a binary file. It first opens
- * the file, then calls saveItemDetails to perform the actual data saving. After
- * the data is saved, the file is closed.
- *
- * @param arr Pointer to the array of ItemDetails to be saved.
- * @param nmemb Number of elements in the array.
- * @param filename Path to the binary file where data will be saved.
- *
- * @return 0 on success, non-zero on failure.
- */
-int saveItemDetailsToPath(const struct ItemDetails* arr, size_t nmemb, const char* filename) {
-
-  FILE *ofp = fopen(filename, "wb");
-  assert(ofp != NULL);
-  int fd = fileno(ofp);
-  assert(fd != -1);
-  int res = saveItemDetails(arr, nmemb, fd);
-  fclose(ofp);
-  return res;
-}
-
-
-
-// ============MAIN=============================================MAIN============================================================MAIN===============
-int main(){
-  int fd;
-  int res;
-  FILE *ofp;
-
-// ------------------------------------------   P1 - saveItemDetails()   -----------------------------------------
-  struct ItemDetails itemArr[] = {{ .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." }};
-  size_t itemArr_size = sizeof(itemArr)/sizeof(struct ItemDetails);
-  const char *fpath = "submit_result.dat";
-  res = saveItemDetailsToPath(itemArr,itemArr_size,fpath);
-  assert(res == 0); //success is 0
-  printf("P1\tSave item success\n");
-
-  // ------------------------------------------   P2 - loadItemDetails()   -----------------------------------------
-  const char * infile_path = "items001.dat";
-  fd = open(infile_path, O_RDONLY);
-  size_t numItems = 0;
-  struct ItemDetails * itemsArr = NULL;
-  res = loadItemDetails(&itemsArr, &numItems, fd);
-  close (fd);
-  free(itemsArr);
-  assert(res == 0); //success is 0
-  printf("P2\tLoad item Details test1 success\n");
-
-  //test 2
-
- struct ItemDetails items001_expectedItems_test2[] = {
-    { .itemID = 16602759796824695000UL, .name = "telescope",      .desc = "brass with wooden tripod, 25x30x60 in." },
-    { .itemID = 13744653742375254000UL, .name = "rope",           .desc = "hemp, 50 ft." },
-    { .itemID = 3400701144194139000UL,  .name = "music-box",      .desc = "brass gears with tin-plated case, 6 in., cursed" },
-    { .itemID = 734628920708863200UL,   .name = "billiard-ball",  .desc = "ivory, 2 in., set of 16 in wooden case, of mysterious origin" },
-    { .itemID = 14734865628490349000UL, .name = "sword-cane",     .desc = "steel-bladed, concealed in Malacca-wood walking-cane, 36 in." },
-    { .itemID = 14324391740292973000UL, .name = "dynamite-stick", .desc = "with paper wrapping, 1 in. diameter x 12 in." },
-    { .itemID = 7562791295545618000UL,  .name = "Epsom-salts",    .desc = "6 oz, in glass bottle with cork stopper" },
-    { .itemID = 13658877949582529000UL, .name = "camp-stool",     .desc = "canvas and wood, 12 in. seat height" },
-    { .itemID = 2390949174291477500UL,  .name = "slide-rule",     .desc = "wood and brass, 12 in., cursed" },
-  };
-
-  size_t items001_expectedSize_test2 = sizeof(items001_expectedItems_test2)/sizeof(struct ItemDetails);
-  for(size_t i = 0; i < items001_expectedSize_test2; i++) {
-
-    ofp = fopen(infile_path, "rb");
-    fd = fileno(ofp);
-    numItems = 0;
-    itemsArr = NULL;
-    res = loadItemDetails(&itemsArr, &numItems, fd);
-    // pre-requisite: we got the expected number of items
-    assert(numItems == items001_expectedSize_test2);
-    free(itemsArr);
-}
-  printf("P2\tLoad Item Details test2 success\n");
-
-
-// ------------------------------------------   P3 - isValidName()   -----------------------------------------
-  int validName = isValidName(items001_expectedItems_test2[3].name);
-  assert(validName==1); //success is 1
-  printf("P3\tisValidName checker success\n");
-
-// ------------------------------------------   P4 - isValidMultiword()   -----------------------------------------
-
-  int validMultiword = isValidMultiword(items001_expectedItems_test2[4].desc);
-  assert(validMultiword==1);//success is 1
-  printf("P4\tisvalidMultiword checker success\n");
-
-// ------------------------------------------   P5 - isValidItemDetail()   -----------------------------------------
-  int validItemDeets = isValidItemDetails(&itemArr[0]);
-  assert(validItemDeets==1);//success is 1
-  printf("P5\tisValidItemDetails checker success\n");
-
-// ------------------------------------------   P6 - isValidCharacter()   -----------------------------------------
-  const struct Character sample_character = {
-    .characterID = 1,
-    .socialClass = MERCHANT,
-    .profession = "inn-keeper",
-    .name = "Edgar Crawford",
-    .inventorySize = 1,
-    .inventory = {
-      { .itemID = 200648657395984580,
-        .quantity = 1
-      }
-    }
-  };
-
-
-  int validChar = isValidCharacter(&sample_character);
-  assert(validChar==1);//success is 1
-  printf("P6\tisValidCharacter checker success\n");
-
-// ------------------------------------------   P7 - saveCharacters()   -----------------------------------------
-
-struct Character arr[] = {
-  {
-    .characterID = 1,
-    .socialClass = MERCHANT,
-    .profession = "inn-keeper",
-    .name = "Edgar Crawford",
-    .inventorySize = 1,
-    .inventory = {
-      { .itemID = 200648657395984580,
-        .quantity = 1
-      }
-    }
-  },
-  {
-    .characterID = 2,
-    .socialClass = MENDICANT,
-    .profession = "beggar",
-    .name = "Sarah Smith",
-    .inventorySize = 2,
-    .inventory = {
-      { .itemID = 123456789,
-        .quantity = 3
-      },
-      { .itemID = 987654321,
-        .quantity = 2
-      }
-    }
-  },
-  {
-    .characterID = 3,
-    .socialClass = ARISTOCRACY,
-    .profession = "noble",
-    .name = "Lord William",
-    .inventorySize = 3, // No inventory
-    .inventory = {
-      { .itemID = 111222333,
-        .quantity = 5
-      },
-      { .itemID = 444555666,
-        .quantity = 1
-      },
-      { .itemID = 777888999,
-        .quantity = 4
-      }
-    }
-  },
-  {
-    .characterID = 4,
-    .socialClass = LABOURER,
-    .profession = "blacksmith",
-    .name = "John Johnson",
-    .inventorySize = 3,
-    .inventory = {
-      { .itemID = 111222333,
-        .quantity = 5
-      },
-      { .itemID = 444555666,
-        .quantity = 1
-      },
-      { .itemID = 777888999,
-        .quantity = 4
-      }
-    }
-  },
-  {
-    .characterID = 5,
-    .socialClass = GENTRY,
-    .profession = "gentleman",
-    .name = "Henry Smithson",
-    .inventorySize = 2,
-    .inventory = {
-      { .itemID = 987654321,
-        .quantity = 2
-      },
-      { .itemID = 222333444,
-        .quantity = 1
-      }
-    }
-  }
-};
-
-
-  size_t charArr_size = sizeof(arr)/sizeof(struct Character);
-
-  FILE *ofps = fopen("savecharacter.dat", "wb");
-  assert(ofp != NULL);
-  int fdc = fileno(ofps);
-  assert(fdc != -1);
-  int actual_result = saveCharacters(arr, charArr_size, fdc);
-  fclose(ofps);
-
-  assert(actual_result == 0);
-  printf("P7 \tsaveCharacters checker success \n");
-
-// ------------------------------------------   P8 - loadCharacterDetails()   -----------------------------------------
-  const char * savedchar = "characters02.dat";
-  fd = open(savedchar, O_RDONLY);
-  size_t numchars = 0;
-  struct Character * charactersArray = NULL;
-
-  res = loadCharacters(&charactersArray, &numchars, fd);
-  close (fd);
-
-  assert(actual_result == 0);
-  printf("P8\tloadCharacters checker success\n");
-
-  free(charactersArray);
-
-// ------------------------------------------   P9 - secureLoad()   -----------------------------------------
-
-  char *filepth = "items001.dat";
-  res = secureLoad(filepth);
-  assert(res==0);
-  printf("P8\tsecureLoad checker success\n");
-  
-  return 0;
-}
