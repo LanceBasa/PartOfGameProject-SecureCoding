@@ -73,9 +73,10 @@ void playGame(struct ItemDetails* ptr, size_t nmemb);
 
 
 /**
- * This function validates the data, opens the incomming file descriptor for writing
- * and writes the data to the file. It returns 0 on success and 1 on failure.
- *
+ * A function that validates the data, opens the incomming file descriptor for writing
+ * and writes the data to the file. It makes a copy of ItemDetails array and check the copy if it is valid
+ * by calling other isValidItemDetails. It returns 0 on success and 1 on failure.
+ * 
  * @param arr The array of ItemDetails to save.
  * @param nmemb The number of elements in the array.
  * @param fd The file descriptor to write to.
@@ -138,10 +139,12 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
 int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
   FILE* fptr = fdopen(fd, "rb");
   if (fptr == NULL) {
+        fclose(fptr);
       return 1;
   }
 
   if(fread(nmemb, sizeof(uint64_t), 1, fptr)!=1){
+    fclose(fptr);
     return 1;
   }
 
@@ -151,17 +154,45 @@ int loadItemDetails(struct ItemDetails** ptr, size_t* nmemb, int fd) {
     fclose(fptr);
     return 1;
   }
-
   // Load and validate each ItemDetails
   for (size_t i = 0; i < *nmemb; i++) {
     if(fread(&newItmPtr[i],sizeof(struct ItemDetails),1,fptr)!=1){
       free(newItmPtr);
+          fclose(fptr);
       return 1;
     }
     if(!isValidItemDetails(&(newItmPtr[i]))){
       free(newItmPtr);
+          fclose(fptr);
+
       return 1;
     }
+
+    //only copy the validname(up to null byte) to the pointer and padd it with null bytes
+    char tempBuffer[DEFAULT_BUFFER_SIZE];
+    if(strncpy(tempBuffer, newItmPtr[i].name, DEFAULT_BUFFER_SIZE)==NULL){
+      free(newItmPtr);
+      fclose(fptr);
+      return 1;
+    }
+    if(strncpy(newItmPtr[i].name,tempBuffer,DEFAULT_BUFFER_SIZE)==NULL){
+      free(newItmPtr);
+      fclose(fptr);
+      return 1;
+    }
+
+    //similar to name, only copy up to null byte if isValid
+    if(strncpy(tempBuffer, newItmPtr[i].desc, DEFAULT_BUFFER_SIZE)==NULL){
+      free(newItmPtr);
+      fclose(fptr);
+      return 1;
+    }
+    if(strncpy(newItmPtr[i].desc,tempBuffer,DEFAULT_BUFFER_SIZE)==NULL){
+      free(newItmPtr);
+      fclose(fptr);
+      return 1;
+    }
+    memset(tempBuffer,0,DEFAULT_BUFFER_SIZE);
   }
 
   fclose(fptr);
@@ -197,6 +228,7 @@ int isValidName(const char *str) {
         return 0;
       }
     } 
+
     return 1; 
   }
   return 0;
@@ -400,12 +432,45 @@ struct Character* newCharPtr = calloc(*nmemb, sizeof(struct Character));
 for (size_t i = 0; i < *nmemb; i++) {
   if(fread(&newCharPtr[i],sizeof(struct Character),1,fptr)!=1){
     free(newCharPtr);
+            fclose(fptr);
+
     return 1;
   }
   if(!isValidCharacter(&newCharPtr[i])){
     free(newCharPtr);
+            fclose(fptr);
+
     return 1;
   }
+
+  // for every character copy only the profession and name use strncpy to
+  // avoid copying malicous code after null byte
+  char tempBuffer[DEFAULT_BUFFER_SIZE];
+    if(strncpy(tempBuffer, newCharPtr[i].profession, DEFAULT_BUFFER_SIZE)==NULL){
+      free(newCharPtr);
+      fclose(fptr);
+      return 1;
+    }
+    if(strncpy(newCharPtr[i].profession,tempBuffer,DEFAULT_BUFFER_SIZE)==NULL){
+      free(newCharPtr);
+      fclose(fptr);
+      return 1;
+    }
+
+    //similar to profession, only copy up to null byte if isValid
+    if(strncpy(tempBuffer, newCharPtr[i].name, DEFAULT_BUFFER_SIZE)==NULL){
+      free(newCharPtr);
+      fclose(fptr);
+      return 1;
+    }
+    if(strncpy(newCharPtr[i].name,tempBuffer,DEFAULT_BUFFER_SIZE)==NULL){
+      free(newCharPtr);
+      fclose(fptr);
+      return 1;
+    }
+    memset(tempBuffer,0,DEFAULT_BUFFER_SIZE);
+
+
 }
 fclose(fptr);
 
@@ -567,8 +632,8 @@ int main(){
   };
 
   size_t items001_expectedSize_test2 = sizeof(items001_expectedItems_test2)/sizeof(struct ItemDetails);
+  
   for(size_t i = 0; i < items001_expectedSize_test2; i++) {
-
     ofp = fopen(infile_path, "rb");
     fd = fileno(ofp);
     numItems = 0;
@@ -577,7 +642,9 @@ int main(){
     // pre-requisite: we got the expected number of items
     assert(numItems == items001_expectedSize_test2);
     free(itemsArr);
-}
+    fclose(ofp);
+
+  }
   printf("P2\tLoad Item Details test2 success\n");
 
 
@@ -732,6 +799,43 @@ struct Character arr[] = {
   res = secureLoad(filepth);
   assert(res==0);
   printf("P8\tsecureLoad checker success\n");
+
+
+//------------------------- P10 test if malicious code cleared------------------------
+    struct ItemDetails* itemDetails = NULL;
+    size_t nmemb;
+    fd = open("items001.dat", O_RDONLY); // Replace with the actual file path
+    if (loadItemDetails(&itemDetails, &nmemb, fd) == 0) {
+        for (size_t i = 0; i < nmemb; i++) {
+            printf("Item %zu:\n", i);
+            printf("ID: %lu\n", itemDetails[i].itemID);
+            printf("ValidName (copied): %s\n", itemDetails[i].name);
+            printf("ValidName (including null terminator): ");
+            printf("copiedLengt%ld\n", sizeof(itemDetails[i].name));
+            // for (size_t j = 0; j < DEFAULT_BUFFER_SIZE; j++) {
+            //     char currentChar = itemDetails[i].name[j];
+            //     if(currentChar=='\0'){
+            //       printf("0");
+            //     }
+            //     printf("%c", currentChar);
+            // }
+            printf("\n");
+
+
+            // // Validate the copied name, ensuring it's null-terminated
+            // if (itemDetails[i].name[DEFAULT_BUFFER_SIZE - 1] != '\0') {
+            //     printf("Invalid name, not null-terminated!\n");
+            // }
+        }
+
+        free(itemDetails);
+    } else {
+        printf("Failed to load ItemDetails from the file.\n");
+    }
+
+    close(fd); // Close the file descriptor
+
+
   
   return 0;
 }
