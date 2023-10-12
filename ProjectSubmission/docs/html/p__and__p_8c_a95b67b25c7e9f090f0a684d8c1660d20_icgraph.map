@@ -1,0 +1,11 @@
+<map id="isValidMultiword" name="isValidMultiword">
+<area shape="rect" id="node1" title="This function checks if a string is a valid multiword." alt="" coords="591,81,721,108"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#aec06dfc8a90dfe2c5a0c7d56f727ae21" title="This function checks whether a Character struct is valid It is valid iff all of its fields are valid ..." alt="" coords="408,56,536,83"/>
+<area shape="rect" id="node5" href="$p__and__p_8c.html#a016e2cb079f819b59593d79aeed8b024" title="This function checks if an itemDetail srtuct is valid." alt="" coords="401,107,543,133"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#a77ba374e7f225849324a43bb1cc25340" title="This function reads Character from a file descriptor, validates the data and stores it in the incommi..." alt="" coords="229,5,349,32"/>
+<area shape="rect" id="node4" href="$p__and__p_8c.html#ab79b1f170a60ef74d15baec28e4f11a8" title="This function validates the data, opens a file descriptor for writing, and writes the data to the fil..." alt="" coords="227,56,350,83"/>
+<area shape="rect" id="node6" href="$p__and__p_8c.html#ad7ff273f3ae7b323a2325e57bc55165f" title="This function reads ItemDetails from a file descriptor, validates the data and stores it in the provi..." alt="" coords="225,107,352,133"/>
+<area shape="rect" id="node8" href="$p__and__p_8c.html#ab91715820c37e4a405f797137044a417" title="A function that validates the data, opens the incomming file descriptor for writing and writes the da..." alt="" coords="224,157,353,184"/>
+<area shape="rect" id="node7" href="$p__and__p_8c.html#a296f75eb03e00e12cf915c62b664c075" title="This function attempt to acquire appropriate permissions for opening the ItemDetails database and loa..." alt="" coords="43,107,139,133"/>
+<area shape="rect" id="node9" href="$p__and__p_8c.html#aeac7455bb8cad9f22589c724d142d674" title="For Testing purposes only." alt="" coords="5,157,176,184"/>
+</map>

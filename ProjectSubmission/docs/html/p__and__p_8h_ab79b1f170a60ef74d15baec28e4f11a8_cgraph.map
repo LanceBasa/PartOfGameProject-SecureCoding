@@ -1,0 +1,6 @@
+<map id="saveCharacters" name="saveCharacters">
+<area shape="rect" id="node1" title="This function validates the data, opens a file descriptor for writing, and writes the data to the fil..." alt="" coords="5,31,128,57"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#aec06dfc8a90dfe2c5a0c7d56f727ae21" title="This function checks whether a Character struct is valid It is valid iff all of its fields are valid ..." alt="" coords="176,31,304,57"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#a95b67b25c7e9f090f0a684d8c1660d20" title="This function checks if a string is a valid multiword." alt="" coords="352,5,483,32"/>
+<area shape="rect" id="node4" href="$p__and__p_8c.html#abadf6a620876f0fd2a396c1dc922eba3" title="This function checks if a string is a valid name." alt="" coords="365,56,469,83"/>
+</map>

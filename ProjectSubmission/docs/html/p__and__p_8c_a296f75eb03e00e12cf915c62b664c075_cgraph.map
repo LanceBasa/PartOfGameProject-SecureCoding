@@ -1,0 +1,8 @@
+<map id="secureLoad" name="secureLoad">
+<area shape="rect" id="node1" title="This function attempt to acquire appropriate permissions for opening the ItemDetails database and loa..." alt="" coords="5,56,101,83"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#ad7ff273f3ae7b323a2325e57bc55165f" title="This function reads ItemDetails from a file descriptor, validates the data and stores it in the provi..." alt="" coords="149,31,276,57"/>
+<area shape="rect" id="node6" href="$p__and__p_8c.html#a1eaab20527c20e574a714be763e26eb6" title=" " alt="" coords="168,81,257,108"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#a016e2cb079f819b59593d79aeed8b024" title="This function checks if an itemDetail srtuct is valid." alt="" coords="324,31,465,57"/>
+<area shape="rect" id="node4" href="$p__and__p_8c.html#a95b67b25c7e9f090f0a684d8c1660d20" title="This function checks if a string is a valid multiword." alt="" coords="513,5,644,32"/>
+<area shape="rect" id="node5" href="$p__and__p_8c.html#abadf6a620876f0fd2a396c1dc922eba3" title="This function checks if a string is a valid name." alt="" coords="527,56,631,83"/>
+</map>

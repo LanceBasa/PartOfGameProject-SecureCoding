@@ -143,3 +143,5 @@ int slurp_file(
 
     return 0;
 }
+
+void playGame(struct ItemDetails* ptr, size_t nmemb){}

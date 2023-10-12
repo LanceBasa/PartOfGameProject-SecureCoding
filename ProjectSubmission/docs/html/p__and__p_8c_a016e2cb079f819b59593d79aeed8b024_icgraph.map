@@ -1,0 +1,7 @@
+<map id="isValidItemDetails" name="isValidItemDetails">
+<area shape="rect" id="node1" title="This function checks if an itemDetail srtuct is valid." alt="" coords="401,31,543,57"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#ad7ff273f3ae7b323a2325e57bc55165f" title="This function reads ItemDetails from a file descriptor, validates the data and stores it in the provi..." alt="" coords="225,5,352,32"/>
+<area shape="rect" id="node4" href="$p__and__p_8c.html#ab91715820c37e4a405f797137044a417" title="A function that validates the data, opens the incomming file descriptor for writing and writes the da..." alt="" coords="224,56,353,83"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#a296f75eb03e00e12cf915c62b664c075" title="This function attempt to acquire appropriate permissions for opening the ItemDetails database and loa..." alt="" coords="43,5,139,32"/>
+<area shape="rect" id="node5" href="$p__and__p_8c.html#aeac7455bb8cad9f22589c724d142d674" title="For Testing purposes only." alt="" coords="5,56,176,83"/>
+</map>

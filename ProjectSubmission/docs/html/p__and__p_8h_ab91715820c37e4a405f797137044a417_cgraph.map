@@ -1,0 +1,6 @@
+<map id="saveItemDetails" name="saveItemDetails">
+<area shape="rect" id="node1" title="A function that validates the data, opens the incomming file descriptor for writing and writes the da..." alt="" coords="5,31,135,57"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#a016e2cb079f819b59593d79aeed8b024" title="This function checks if an itemDetail srtuct is valid." alt="" coords="183,31,324,57"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#a95b67b25c7e9f090f0a684d8c1660d20" title="This function checks if a string is a valid multiword." alt="" coords="372,5,503,32"/>
+<area shape="rect" id="node4" href="$p__and__p_8c.html#abadf6a620876f0fd2a396c1dc922eba3" title="This function checks if a string is a valid name." alt="" coords="385,56,489,83"/>
+</map>

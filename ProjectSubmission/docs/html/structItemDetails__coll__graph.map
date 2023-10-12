@@ -1,0 +1,5 @@
+<map id="ItemDetails" name="ItemDetails">
+<area shape="rect" id="node1" title="Stores the name and description for some item type that can be carried by player characters as part o..." alt="" coords="36,109,135,136"/>
+<area shape="rect" id="node2" title=" " alt="" coords="5,5,80,32"/>
+<area shape="rect" id="node3" title=" " alt="" coords="104,5,155,32"/>
+</map>

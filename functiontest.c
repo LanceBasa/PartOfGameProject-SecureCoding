@@ -1,3 +1,12 @@
+/*
+ * Author:          Lance Basa
+ * Date:            12 Oct 2023
+ * Description:     This is a CITS3007 - Secure Coding Project for 2023
+ *                  I acknowledge the use of chat for clarification, ideas
+ *                  and debugging during development.
+ * 
+ */
+
 #define _POSIX_C_SOURCE 200809L//strnlen
 
 #include <stdio.h>
@@ -115,7 +124,7 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
   // Swapped sizeof and count to get bytes being written to file
   bytesWritten+=fwrite(&itemCount,1,sizeof(uint64_t),fptr);
   bytesWritten+=fwrite(&itemCpy,1,sizeof(itemCpy),fptr);
-
+  //something went wrong during save, not all bytes written
   if (bytesWritten!= (sizeof(itemCpy) +sizeof(itemCount))){
       memset(&itemCpy,0,sizeof(struct ItemDetails )* itemCount);
     return 1;
@@ -129,7 +138,10 @@ int saveItemDetails(const struct ItemDetails* arr, size_t nmemb, int fd) {
 
 /**
  * This function reads ItemDetails from a file descriptor, validates the data
- * and stores it in the provided pointer. It returns 0 on success and 1 on failure.
+ * and stores it in the provided pointer. It checks each filed in the struct
+ * if they pass valid functions. After passing, only copy the string up to
+ * null byte terminator and sanitizes bytes after the null bye.
+ * It returns 0 on success and 1 on failure.
  *
  * @param ptr Pointer to store the loaded data.
  * @param nmemb Number of elements loaded.

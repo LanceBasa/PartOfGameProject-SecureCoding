@@ -1,0 +1,5 @@
+<map id="isValidCharacter" name="isValidCharacter">
+<area shape="rect" id="node1" title="This function checks whether a Character struct is valid It is valid iff all of its fields are valid ..." alt="" coords="176,31,304,57"/>
+<area shape="rect" id="node2" href="$p__and__p_8c.html#a77ba374e7f225849324a43bb1cc25340" title="This function reads Character from a file descriptor, validates the data and stores it in the incommi..." alt="" coords="7,5,127,32"/>
+<area shape="rect" id="node3" href="$p__and__p_8c.html#ab79b1f170a60ef74d15baec28e4f11a8" title="This function validates the data, opens a file descriptor for writing, and writes the data to the fil..." alt="" coords="5,56,128,83"/>
+</map>

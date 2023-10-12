@@ -22,7 +22,7 @@
 #---------------------------------------------------------------------------
 
 DOXYFILE_ENCODING      = UTF-8
-PROJECT_NAME           = "pitchforks-and-poltergeists"
+PROJECT_NAME           = "CITS3007 Project"
 PROJECT_BRIEF          = "Nineteenth-century paranormal MMORPG"
 OUTPUT_DIRECTORY       = "docs"
 OUTPUT_LANGUAGE        = English

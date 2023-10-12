@@ -1,6 +1,17 @@
-#define _POSIX_C_SOURCE 200809L//strnlen
+/*
+ * Author:          Lance Basa
+ * StudentID:       23420659
+ * Date:            12 Oct 2023
+ * 
+ * Description:     This is a CITS3007 - Secure Coding Project for 2023
+ *                  This source code is coded by Lance Basa which suppose
+ *                  to save and load characters and items securely for a program.
+ *                  I acknowledge the use of chat for clarification, ideas
+ *                  and debugging during development.
+ * 
+ */
 
-#define _POSIX_C_SOURCE 200809L // strnlen
+#define _POSIX_C_SOURCE 200809L//strnlen
 
 #include <p_and_p.h>
 #include <ctype.h>
